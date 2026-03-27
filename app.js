@@ -840,6 +840,21 @@ function sortStoresForView(stores, targetRates) {
     return stores;
   }
   return [...stores].sort((a, b) => {
+    if (state.sortMonth === "__AI__") {
+      const aMeta = getStoreAiSortMeta(a, targetRates);
+      const bMeta = getStoreAiSortMeta(b, targetRates);
+      const rankMap = state.sortDirection === "asc"
+        ? { 1: 0, [-1]: 1, 0: 2 }
+        : { [-1]: 0, 1: 1, 0: 2 };
+      const directionDiff = rankMap[aMeta.direction] - rankMap[bMeta.direction];
+      if (directionDiff !== 0) {
+        return directionDiff;
+      }
+      const aSafe = Number.isFinite(aMeta.points) ? aMeta.points : Number.NEGATIVE_INFINITY;
+      const bSafe = Number.isFinite(bMeta.points) ? bMeta.points : Number.NEGATIVE_INFINITY;
+      const diff = state.sortDirection === "asc" ? aSafe - bSafe : bSafe - aSafe;
+      return diff || state.storeOrder.indexOf(a) - state.storeOrder.indexOf(b);
+    }
     const aValue = state.sortMonth === "__AI__" ? getStoreAiSortValue(a, targetRates) : getStoreSortValue(a, state.sortMonth, targetRates);
     const bValue = state.sortMonth === "__AI__" ? getStoreAiSortValue(b, targetRates) : getStoreSortValue(b, state.sortMonth, targetRates);
     const aSafe = Number.isFinite(aValue) ? aValue : Number.NEGATIVE_INFINITY;
@@ -850,12 +865,25 @@ function sortStoresForView(stores, targetRates) {
 }
 
 function getStoreAiSortValue(store, targetRates) {
+  return getStoreAiSortMeta(store, targetRates).points;
+}
+
+function getStoreAiSortMeta(store, targetRates) {
   const rows = targetRates
     .filter((rate) => AI_TARGET_RATES.has(rate))
     .map((rate) => getRateAiTrendScore(store, rate))
     .filter((score) => score !== null);
-  if (!rows.length) return null;
-  return average(rows.map((score) => getAiPriorityPoints(score)));
+  if (!rows.length) {
+    return { direction: 0, points: null };
+  }
+  const avgScore = average(rows);
+  if (!Number.isFinite(avgScore) || avgScore === 0) {
+    return { direction: 0, points: 0 };
+  }
+  return {
+    direction: avgScore > 0 ? 1 : -1,
+    points: average(rows.map((score) => getAiPriorityPoints(score)))
+  };
 }
 
 function getRateAiTrendScore(store, rate) {
