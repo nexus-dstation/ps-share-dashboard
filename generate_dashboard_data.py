@@ -24,6 +24,7 @@ def main() -> None:
     OUTPUT_DIR.mkdir(exist_ok=True)
     write_csv(OUTPUT_DIR / "dashboard-data.csv", rows)
     write_json(OUTPUT_DIR / "dashboard-data.json", rows)
+    write_js(OUTPUT_DIR / "dashboard-data.js", rows)
     print(f"generated {len(rows)} rows")
 
 
@@ -245,6 +246,11 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 def write_json(path: Path, rows: list[dict]) -> None:
     path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def write_js(path: Path, rows: list[dict]) -> None:
+    payload = json.dumps(rows, ensure_ascii=False, indent=2)
+    path.write_text(f"window.__DASHBOARD_DATA__ = {payload};\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

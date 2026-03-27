@@ -1,4 +1,4 @@
-﻿window.__DASHBOARD_DATA__ = [
+window.__DASHBOARD_DATA__ = [
   {
     "年月": "2025-07",
     "店舗名": "沼田店",
