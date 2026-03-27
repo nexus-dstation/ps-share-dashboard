@@ -12,6 +12,7 @@ const RAW_RATE_FILE_PREFIXES = {
   "5円S": "チェーン店レポート_種別_5円スロット",
   "5円未満S": "チェーン店レポート_種別_5円未満S"
 };
+const RAW_SUM_KEYS = new Set(["台数", "自店客数", "商圏客数", "売上合計(千円)", "補粗利合計", "アウト"]);
 const AI_DIAGNOSIS_TOOLTIP = "判定は直近3か月平均です。過少傾向の月は ((売上シェア-台数シェア)+(補粗利シェア-台数シェア))/2、過多傾向の月は -(((台数シェア-売上シェア)+(台数シェア-補粗利シェア))/2) で月次強度を出し、直近3か月平均を AI強度 とします。表示ptは min(100, abs(AI強度)×4) です。pt が高いほど優先度が高いです。";
 const STATUS_CLASS = {
   "不足": "status-shortage",
@@ -1220,9 +1221,28 @@ function indexRowsByStore(rows) {
     if (!storeName) {
       return acc;
     }
-    acc[storeName] = row;
+    if (!acc[storeName]) {
+      acc[storeName] = { ...row, 店舗名: storeName };
+      return acc;
+    }
+    acc[storeName] = mergeRawStoreRows(acc[storeName], row);
     return acc;
   }, {});
+}
+
+function mergeRawStoreRows(base, extra) {
+  const merged = { ...base };
+  Object.entries(extra).forEach(([key, value]) => {
+    if (key === "店舗名") return;
+    const baseNum = toNumber(merged[key]);
+    const extraNum = toNumber(value);
+    if (RAW_SUM_KEYS.has(key) && Number.isFinite(baseNum) && Number.isFinite(extraNum)) {
+      merged[key] = Math.round(baseNum + extraNum);
+    } else if ((merged[key] === "" || merged[key] === null || merged[key] === undefined || merged[key] === "-") && value) {
+      merged[key] = value;
+    }
+  });
+  return merged;
 }
 
 function normalizeStoreName(value) {

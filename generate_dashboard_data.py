@@ -8,6 +8,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "data"
+SUM_KEYS = {"台数", "自店客数", "商圏客数", "売上合計(千円)", "補粗利合計", "アウト"}
 
 RATE_FILES = {
     "4円超P": "チェーン店レポート_種別_4円超パチンコ",
@@ -106,26 +107,14 @@ def load_latest_store_order(month_dir: Path) -> dict[str, int]:
 
 def load_totals(path: Path) -> dict[str, dict]:
     rows = load_csv(path)
-    result: dict[str, dict] = {}
-    for row in rows:
-        store_name = normalize_store_name(row.get("店舗名", ""))
-        if not store_name:
-            continue
-        result[store_name] = row
-    return result
+    return aggregate_rows_by_store(rows)
 
 
 def load_rate_file(path: Path | None) -> dict[str, dict]:
     if not path:
         return {}
     rows = load_csv(path)
-    result: dict[str, dict] = {}
-    for row in rows:
-        store_name = normalize_store_name(row.get("店舗名", ""))
-        if not store_name:
-            continue
-        result[store_name] = row
-    return result
+    return aggregate_rows_by_store(rows)
 
 
 def load_csv(path: Path) -> list[dict]:
@@ -155,6 +144,34 @@ def normalize_store_name(value: str) -> str:
     if not text or text == "店舗平均":
         return ""
     return re.sub(r"^\d+\s+", "", text)
+
+
+def aggregate_rows_by_store(rows: list[dict]) -> dict[str, dict]:
+    aggregated: dict[str, dict] = {}
+    for row in rows:
+        store_name = normalize_store_name(row.get("店舗名", ""))
+        if not store_name:
+            continue
+        if store_name not in aggregated:
+            aggregated[store_name] = dict(row)
+            aggregated[store_name]["店舗名"] = store_name
+            continue
+        aggregated[store_name] = merge_store_rows(aggregated[store_name], row)
+    return aggregated
+
+
+def merge_store_rows(base: dict, extra: dict) -> dict:
+    merged = dict(base)
+    for key, value in extra.items():
+        if key == "店舗名":
+            continue
+        base_num = to_number(merged.get(key))
+        extra_num = to_number(value)
+        if key in SUM_KEYS and base_num is not None and extra_num is not None:
+            merged[key] = round_or_int(base_num + extra_num)
+        elif merged.get(key) in {"", None, "-"} and value not in {"", None, "-"}:
+            merged[key] = value
+    return merged
 
 
 def to_number(value: object) -> float | None:
