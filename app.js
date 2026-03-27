@@ -52,6 +52,7 @@ const els = {
   passwordInput: document.querySelector("#passwordInput"),
   importMonthSelect: document.querySelector("#importMonthSelect"),
   fileInput: document.querySelector("#fileInput"),
+  clearSavedDataButton: document.querySelector("#clearSavedDataButton"),
   importStatus: document.querySelector("#importStatus"),
   trendCards: document.querySelector("#trendCards"),
   matrixHead: document.querySelector("#matrixHead"),
@@ -212,6 +213,14 @@ function bindEvents() {
     await handleImportFile(event.target);
   });
 
+  els.clearSavedDataButton.addEventListener("click", async () => {
+    clearSavedRows();
+    els.importStatus.textContent = "保存データをクリアしました。公開データを再読み込みします。";
+    state.importPanelOpen = false;
+    updateImportPanel();
+    await init();
+  });
+
 }
 
 function unlockAccessGate() {
@@ -367,6 +376,14 @@ function saveRowsToLocal(rows) {
     window.localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(rows));
   } catch (error) {
     console.warn("localStorage save failed", error);
+  }
+}
+
+function clearSavedRows() {
+  try {
+    window.localStorage.removeItem(LOCAL_DATA_KEY);
+  } catch (error) {
+    console.warn("localStorage remove failed", error);
   }
 }
 
