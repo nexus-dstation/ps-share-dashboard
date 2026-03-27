@@ -12,7 +12,7 @@ const RAW_RATE_FILE_PREFIXES = {
   "5円S": "チェーン店レポート_種別_5円スロット",
   "5円未満S": "チェーン店レポート_種別_5円未満S"
 };
-const AI_DIAGNOSIS_TOOLTIP = "判定は直近3か月平均です。各月で 売上シェア > 補粗利シェア > 台数シェア を +1、売上シェア < 補粗利シェア < 台数シェア を -1 として平均し、強さを 0〜100pt に換算しています。pt が高いほど優先度が高いです。";
+const AI_DIAGNOSIS_TOOLTIP = "判定は直近3か月平均です。過少傾向の月は ((売上シェア-台数シェア)+(補粗利シェア-台数シェア))/2、過多傾向の月は -(((台数シェア-売上シェア)+(台数シェア-補粗利シェア))/2) で月次強度を出し、直近3か月平均を AI強度 とします。表示ptは min(100, abs(AI強度)×4) です。pt が高いほど優先度が高いです。";
 const STATUS_CLASS = {
   "不足": "status-shortage",
   "過剰": "status-excess",
@@ -854,7 +854,7 @@ function getStoreAiSortValue(store, targetRates) {
     .map((rate) => getRateAiTrendScore(store, rate))
     .filter((score) => score !== null);
   if (!rows.length) return null;
-  return average(rows.map((score) => Math.abs(score) * 100));
+  return average(rows.map((score) => getAiPriorityPoints(score)));
 }
 
 function getRateAiTrendScore(store, rate) {
@@ -872,10 +872,10 @@ function getRateAiTrendScore(store, rate) {
         Number.isFinite(row.台数シェア)
       ) {
         if (row.売上シェア > row.補粗利シェア && row.補粗利シェア > row.台数シェア) {
-          return 1;
+          return ((row.売上シェア - row.台数シェア) + (row.補粗利シェア - row.台数シェア)) / 2;
         }
         if (row.売上シェア < row.補粗利シェア && row.補粗利シェア < row.台数シェア) {
-          return -1;
+          return -(((row.台数シェア - row.売上シェア) + (row.台数シェア - row.補粗利シェア)) / 2);
         }
       }
       return 0;
@@ -890,7 +890,14 @@ function formatAiPriorityPoints(value) {
   if (!Number.isFinite(value)) {
     return "";
   }
-  return `${Math.round(Math.abs(value) * 100)}pt`;
+  return `${Math.round(getAiPriorityPoints(value))}pt`;
+}
+
+function getAiPriorityPoints(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(100, Math.abs(value) * 4);
 }
 
 function getStoreSortValue(store, month, targetRates) {
