@@ -824,11 +824,12 @@ function buildAiDiagnosis(store, rate) {
   if (score === null) {
     return "";
   }
+  const scoreLabel = formatAiScore(score);
   if (score > 0) {
-    return `<span class="ai-diagnosis ai-shortage" title="${AI_DIAGNOSIS_TOOLTIP}">過少傾向</span>`;
+    return `<span class="ai-diagnosis ai-shortage" title="${AI_DIAGNOSIS_TOOLTIP}"><span class="ai-label">過少傾向</span><span class="ai-score">${scoreLabel}</span></span>`;
   }
   if (score < 0) {
-    return `<span class="ai-diagnosis ai-excess" title="${AI_DIAGNOSIS_TOOLTIP}">過多傾向</span>`;
+    return `<span class="ai-diagnosis ai-excess" title="${AI_DIAGNOSIS_TOOLTIP}"><span class="ai-label">過多傾向</span><span class="ai-score">${scoreLabel}</span></span>`;
   }
   return "";
 }
@@ -883,6 +884,13 @@ function getRateAiTrendScore(store, rate) {
     return null;
   }
   return average(scores);
+}
+
+function formatAiScore(value) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
 }
 
 function getStoreSortValue(store, month, targetRates) {
