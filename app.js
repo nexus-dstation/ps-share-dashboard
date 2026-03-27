@@ -2,6 +2,7 @@ const RATE_ORDER = ["4円超P", "1円P", "1円未満P", "20円超S", "5円S", "5
 const AI_TARGET_RATES = new Set(["4円超P", "20円超S"]);
 const IMPORT_PASSWORD = "Nexus3939";
 const ACCESS_PASSWORD = "7777";
+const LOCAL_DATA_KEY = "ps-share-dashboard-saved-data";
 const RAW_TOTAL_FILE_PREFIX = "チェーン店レポート_種別_店舗全体実績";
 const RAW_RATE_FILE_PREFIXES = {
   "4円超P": "チェーン店レポート_種別_4円超パチンコ",
@@ -83,6 +84,11 @@ init();
 
 async function init() {
   bindEvents();
+  const savedRows = loadSavedRows();
+  if (savedRows.length) {
+    loadData(savedRows, "saved-local-data");
+    return;
+  }
   if (Array.isArray(window.__DASHBOARD_DATA__) && window.__DASHBOARD_DATA__.length) {
     loadData(window.__DASHBOARD_DATA__, "embedded-dashboard-data");
     return;
@@ -234,9 +240,24 @@ async function handleImportFile(input) {
 
   try {
     const rows = await parseImportFile(file);
-    const normalizedRows = applyImportMonth(rows, state.importMonth || guessLatestMonth(rows));
-    loadData(normalizedRows, file.name);
-    els.importStatus.textContent = `${file.name} を読込しました。反映月 ${state.importMonth || guessLatestMonth(rows) || "-"}`;
+    const targetMonth = state.importMonth || guessLatestMonth(rows);
+    const normalizedRows = applyImportMonth(rows, targetMonth);
+    const mergedRows = mergeImportedRows(state.allRows, normalizedRows);
+    const targetMonths = unique(
+      normalizedRows
+        .map((row) => String(row["年月"] || row["対象年月"] || "").trim())
+        .filter(Boolean)
+    ).sort(compareMonthAsc);
+    const targetLabel = targetMonths.length ? targetMonths.join(", ") : (targetMonth || "-");
+    const confirmed = window.confirm(`${targetLabel} を既存データへ反映して保存しますか？`);
+    if (!confirmed) {
+      els.importStatus.textContent = "取込をキャンセルしました";
+      input.value = "";
+      return;
+    }
+    saveRowsToLocal(mergedRows);
+    loadData(mergedRows, file.name);
+    els.importStatus.textContent = `${file.name} を保存しました。反映月 ${targetLabel}`;
     state.importPanelOpen = false;
     updateImportPanel();
   } catch (error) {
@@ -308,6 +329,40 @@ function applyImportMonth(rows, month) {
     年月: month,
     対象年月: month
   }));
+}
+
+function mergeImportedRows(baseRows, importedRows) {
+  if (!importedRows.length) {
+    return [...baseRows];
+  }
+  const importedMonths = new Set(
+    importedRows
+      .map((row) => String(row["年月"] || row["対象年月"] || "").trim())
+      .filter(Boolean)
+  );
+  const remainingRows = baseRows.filter((row) => !importedMonths.has(String(row["年月"] || "").trim()));
+  return [...remainingRows, ...importedRows];
+}
+
+function loadSavedRows() {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_DATA_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveRowsToLocal(rows) {
+  try {
+    window.localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(rows));
+  } catch (error) {
+    console.warn("localStorage save failed", error);
+  }
 }
 
 async function tryLoadPreferredData() {
