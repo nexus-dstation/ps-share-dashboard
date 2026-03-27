@@ -12,7 +12,7 @@ const RAW_RATE_FILE_PREFIXES = {
   "5円S": "チェーン店レポート_種別_5円スロット",
   "5円未満S": "チェーン店レポート_種別_5円未満S"
 };
-const AI_DIAGNOSIS_TOOLTIP = "判定は直近月です。過少傾向: 売上シェア > 補粗利シェア > 台数シェア。過多傾向: 売上シェア < 補粗利シェア < 台数シェア。";
+const AI_DIAGNOSIS_TOOLTIP = "判定は直近3か月です。過少傾向: 売上シェア > 補粗利シェア > 台数シェア。過多傾向: 売上シェア < 補粗利シェア < 台数シェア。3か月の多数方向で表示します。";
 const STATUS_CLASS = {
   "不足": "status-shortage",
   "過剰": "status-excess",
@@ -465,15 +465,11 @@ function renderTrendCards() {
         const row = state.allRows.find((item) => item.年月 === month && item.店舗名 === store && item.レート区分 === rate);
         return buildMatrixCell(row, month, rate);
       }).join("");
-      const latestMonth = monthsAsc[monthsAsc.length - 1] || "";
-      const latestRow = latestMonth
-        ? state.allRows.find((item) => item.年月 === latestMonth && item.店舗名 === store && item.レート区分 === rate)
-        : null;
       tr.innerHTML = `
         <td>${store}</td>
         <td>${rate}</td>
         ${monthCells}
-        <td class="ai-col-cell">${buildAiDiagnosis(latestRow)}</td>
+        <td class="ai-col-cell">${buildAiDiagnosis(store, rate)}</td>
       `;
       els.trendCards.appendChild(tr);
     });
@@ -558,10 +554,6 @@ async function exportCurrentView() {
       if (!storeRateHasAnySeats(store, rate)) {
         return;
       }
-      const latestMonth = monthsAsc[monthsAsc.length - 1] || "";
-      const latestRow = latestMonth
-        ? state.allRows.find((item) => item.年月 === latestMonth && item.店舗名 === store && item.レート区分 === rate)
-        : null;
       const values = [store, rate];
       const cellMeta = [];
 
@@ -598,7 +590,7 @@ async function exportCurrentView() {
         }
       });
 
-      values.push(stripHtml(buildAiDiagnosis(latestRow)));
+      values.push(stripHtml(buildAiDiagnosis(store, rate)));
       const excelRow = sheet.addRow(values);
       styleExportRow(excelRow, cellMeta);
     });
@@ -807,20 +799,19 @@ function storeRateHasAnySeats(store, rate) {
   });
 }
 
-function buildAiDiagnosis(row) {
-  if (!row) {
+function buildAiDiagnosis(store, rate) {
+  if (!AI_TARGET_RATES.has(rate)) {
     return "";
   }
-  if (!AI_TARGET_RATES.has(row.レート区分)) {
+  const score = getRateAiTrendScore(store, rate);
+  if (score === null) {
     return "";
   }
-  if (Number.isFinite(row.売上シェア) && Number.isFinite(row.補粗利シェア) && Number.isFinite(row.台数シェア)) {
-    if (row.売上シェア > row.補粗利シェア && row.補粗利シェア > row.台数シェア) {
-      return `<span class="ai-diagnosis ai-shortage" title="${AI_DIAGNOSIS_TOOLTIP}">過少傾向</span>`;
-    }
-    if (row.売上シェア < row.補粗利シェア && row.補粗利シェア < row.台数シェア) {
-      return `<span class="ai-diagnosis ai-excess" title="${AI_DIAGNOSIS_TOOLTIP}">過多傾向</span>`;
-    }
+  if (score > 0) {
+    return `<span class="ai-diagnosis ai-shortage" title="${AI_DIAGNOSIS_TOOLTIP}">過少傾向</span>`;
+  }
+  if (score < 0) {
+    return `<span class="ai-diagnosis ai-excess" title="${AI_DIAGNOSIS_TOOLTIP}">過多傾向</span>`;
   }
   return "";
 }
@@ -840,17 +831,44 @@ function sortStoresForView(stores, targetRates) {
 }
 
 function getStoreAiSortValue(store, targetRates) {
-  const latestMonth = getVisibleMonths().slice(-1)[0];
-  if (!latestMonth) return null;
   const rows = targetRates
-    .map((rate) => state.allRows.find((item) => item.年月 === latestMonth && item.店舗名 === store && item.レート区分 === rate))
-    .filter((row) => row && AI_TARGET_RATES.has(row.レート区分));
+    .filter((rate) => AI_TARGET_RATES.has(rate))
+    .map((rate) => getRateAiTrendScore(store, rate))
+    .filter((score) => score !== null);
   if (!rows.length) return null;
-  return average(rows.map((row) => {
-    if (row.売上シェア > row.補粗利シェア && row.補粗利シェア > row.台数シェア) return 1;
-    if (row.売上シェア < row.補粗利シェア && row.補粗利シェア < row.台数シェア) return -1;
-    return 0;
-  }));
+  return average(rows);
+}
+
+function getRateAiTrendScore(store, rate) {
+  const months = getVisibleMonths().slice(-3);
+  if (!months.length) {
+    return null;
+  }
+  const scores = months
+    .map((month) => state.allRows.find((item) => item.年月 === month && item.店舗名 === store && item.レート区分 === rate))
+    .filter(Boolean)
+    .map((row) => {
+      if (
+        Number.isFinite(row.売上シェア) &&
+        Number.isFinite(row.補粗利シェア) &&
+        Number.isFinite(row.台数シェア)
+      ) {
+        if (row.売上シェア > row.補粗利シェア && row.補粗利シェア > row.台数シェア) {
+          return 1;
+        }
+        if (row.売上シェア < row.補粗利シェア && row.補粗利シェア < row.台数シェア) {
+          return -1;
+        }
+      }
+      return 0;
+    });
+  if (!scores.length) {
+    return null;
+  }
+  const sum = scores.reduce((acc, value) => acc + value, 0);
+  if (sum > 0) return 1;
+  if (sum < 0) return -1;
+  return 0;
 }
 
 function getStoreSortValue(store, month, targetRates) {
