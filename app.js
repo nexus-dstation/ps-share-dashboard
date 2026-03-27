@@ -1,6 +1,7 @@
 const RATE_ORDER = ["4円超P", "1円P", "1円未満P", "20円超S", "5円S", "5円未満S"];
 const AI_TARGET_RATES = new Set(["4円超P", "20円超S"]);
 const IMPORT_PASSWORD = "Nexus3939";
+const ACCESS_PASSWORD = "7777";
 const AI_DIAGNOSIS_TOOLTIP = "判定は直近月です。過少傾向: 売上シェア > 補粗利シェア > 台数シェア。過多傾向: 売上シェア < 補粗利シェア < 台数シェア。";
 const STATUS_CLASS = {
   "不足": "status-shortage",
@@ -12,6 +13,10 @@ const STATUS_CLASS = {
 const els = {
   dashboard: document.querySelector("#dashboard"),
   emptyState: document.querySelector("#emptyState"),
+  accessGate: document.querySelector("#accessGate"),
+  accessPasswordInput: document.querySelector("#accessPasswordInput"),
+  accessUnlockButton: document.querySelector("#accessUnlockButton"),
+  accessError: document.querySelector("#accessError"),
   dashboardTitle: document.querySelector("#dashboardTitle"),
   storeSelect: document.querySelector("#storeSelect"),
   storePrevButton: document.querySelector("#storePrevButton"),
@@ -80,6 +85,13 @@ async function init() {
 }
 
 function bindEvents() {
+  els.accessUnlockButton.addEventListener("click", unlockAccessGate);
+  els.accessPasswordInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      unlockAccessGate();
+    }
+  });
+
   els.emptyOpenImportButton.addEventListener("click", () => {
     state.importPanelOpen = true;
     updateImportPanel();
@@ -180,6 +192,15 @@ function bindEvents() {
     await handleImportFile(event.target);
   });
 
+}
+
+function unlockAccessGate() {
+  if (els.accessPasswordInput.value === ACCESS_PASSWORD) {
+    els.accessGate.classList.add("hidden");
+    els.accessError.classList.add("hidden");
+    return;
+  }
+  els.accessError.classList.remove("hidden");
 }
 
 function toggleImportPanel() {

@@ -7,6 +7,18 @@
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
+  <section id="accessGate" class="access-gate">
+    <div class="access-card panel">
+      <p class="header-kicker">Share Dashboard</p>
+      <h1>閲覧パスワード</h1>
+      <p class="access-text">閲覧するにはパスワードを入力してください。</p>
+      <div class="access-form">
+        <input id="accessPasswordInput" type="password" placeholder="パスワード">
+        <button id="accessUnlockButton" class="button primary" type="button">開く</button>
+      </div>
+      <p id="accessError" class="access-error hidden">パスワードが違います。</p>
+    </div>
+  </section>
   <div class="page-shell">
     <header class="page-header panel">
       <div class="header-title">

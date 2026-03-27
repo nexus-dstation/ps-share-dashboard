@@ -37,6 +37,53 @@ body {
   overflow-x: auto;
 }
 
+.access-gate {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(243, 244, 246, 0.96);
+  z-index: 100;
+}
+
+.access-card {
+  width: min(420px, 100%);
+  padding: 28px;
+}
+
+.access-card h1 {
+  margin: 0 0 10px;
+  font-size: 24px;
+}
+
+.access-text {
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+
+.access-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.access-form input {
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #fff;
+}
+
+.access-error {
+  margin: 12px 0 0;
+  color: #a13d3d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 button,
 input,
 select {
