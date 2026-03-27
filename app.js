@@ -33,6 +33,7 @@ const els = {
   storeNextButton: document.querySelector("#storeNextButton"),
   rateSelect: document.querySelector("#rateSelect"),
   metricSelect: document.querySelector("#metricSelect"),
+  exportExcelButton: document.querySelector("#exportExcelButton"),
   periodTrigger: document.querySelector("#periodTrigger"),
   periodPanel: document.querySelector("#periodPanel"),
   periodStartYearPrev: document.querySelector("#periodStartYearPrev"),
@@ -142,6 +143,10 @@ function bindEvents() {
   els.metricSelect.addEventListener("change", () => {
     state.selectedMetric = els.metricSelect.value;
     render();
+  });
+
+  els.exportExcelButton.addEventListener("click", async () => {
+    await exportCurrentView();
   });
 
   els.periodTrigger.addEventListener("click", () => {
@@ -503,6 +508,219 @@ function getVisibleMonths() {
       if (state.periodEnd && month > state.periodEnd) return false;
       return true;
     });
+}
+
+function getViewContext() {
+  const monthsAsc = getVisibleMonths();
+  const allRealStores = state.stores.filter((store) => store !== "全店舗");
+  const baseStores = state.selectedStore === "全店舗" ? allRealStores : [state.selectedStore];
+  const requestedRates = state.selectedRate === "全レート" ? RATE_ORDER : [state.selectedRate];
+  const targetRates = requestedRates.filter((rate) => rateHasAnySeats(baseStores, rate));
+  const targetStores = sortStoresForView(baseStores, targetRates);
+  return { monthsAsc, targetStores, targetRates };
+}
+
+async function exportCurrentView() {
+  const { monthsAsc, targetStores, targetRates } = getViewContext();
+  if (!monthsAsc.length || !targetStores.length || !targetRates.length) {
+    window.alert("出力できるデータがありません");
+    return;
+  }
+  if (!window.ExcelJS) {
+    window.alert("Excel出力ライブラリを読み込めませんでした");
+    return;
+  }
+
+  const workbook = new window.ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Share Dashboard");
+  const headers = ["店舗", "レート"];
+  monthsAsc.forEach((month) => {
+    if (state.selectedMetric === "all") {
+      headers.push(`${month}_台数`, `${month}_台数シェア`, `${month}_売上シェア`, `${month}_補粗利シェア`);
+    } else {
+      headers.push(month);
+    }
+  });
+  headers.push("AI診断");
+  sheet.addRow(headers);
+
+  const firstRow = sheet.getRow(1);
+  firstRow.font = { bold: true, color: { argb: "FF334155" } };
+  firstRow.alignment = { vertical: "middle", horizontal: "center" };
+  firstRow.height = 22;
+  firstRow.eachCell((cell) => {
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F5F7" } };
+    cell.border = bottomBorder();
+  });
+
+  targetStores.forEach((store) => {
+    targetRates.forEach((rate) => {
+      if (!storeRateHasAnySeats(store, rate)) {
+        return;
+      }
+      const latestMonth = monthsAsc[monthsAsc.length - 1] || "";
+      const latestRow = latestMonth
+        ? state.allRows.find((item) => item.年月 === latestMonth && item.店舗名 === store && item.レート区分 === rate)
+        : null;
+      const values = [store, rate];
+      const cellMeta = [];
+
+      monthsAsc.forEach((month) => {
+        const row = state.allRows.find((item) => item.年月 === month && item.店舗名 === store && item.レート区分 === rate);
+        const peerRows = state.allRows.filter((item) => item.年月 === month && item.レート区分 === rate);
+        const seatTone = getMetricTone(row?.台数シェア, peerRows.map((item) => item.台数シェア));
+        const salesTone = getMetricTone(row?.売上シェア, peerRows.map((item) => item.売上シェア));
+        const profitTone = getMetricTone(row?.補粗利シェア, peerRows.map((item) => item.補粗利シェア));
+
+        if (state.selectedMetric === "all") {
+          values.push(Number.isFinite(row?.台数) ? row.台数 : "");
+          values.push(formatPercentCsv(row?.台数シェア));
+          values.push(formatPercentCsv(row?.売上シェア));
+          values.push(formatPercentCsv(row?.補粗利シェア));
+          cellMeta.push(
+            { tone: { className: "metric-mid", strength: 26 }, type: "count" },
+            { tone: seatTone, type: "percent" },
+            { tone: salesTone, type: "percent" },
+            { tone: profitTone, type: "percent" }
+          );
+        } else if (state.selectedMetric === "count") {
+          values.push(Number.isFinite(row?.台数) ? row.台数 : "");
+          cellMeta.push({ tone: { className: "metric-mid", strength: 26 }, type: "count" });
+        } else if (state.selectedMetric === "seatShare") {
+          values.push(formatPercentCsv(row?.台数シェア));
+          cellMeta.push({ tone: seatTone, type: "percent" });
+        } else if (state.selectedMetric === "salesShare") {
+          values.push(formatPercentCsv(row?.売上シェア));
+          cellMeta.push({ tone: salesTone, type: "percent" });
+        } else if (state.selectedMetric === "profitShare") {
+          values.push(formatPercentCsv(row?.補粗利シェア));
+          cellMeta.push({ tone: profitTone, type: "percent" });
+        }
+      });
+
+      values.push(stripHtml(buildAiDiagnosis(latestRow)));
+      const excelRow = sheet.addRow(values);
+      styleExportRow(excelRow, cellMeta);
+    });
+  });
+
+  sheet.views = [{ state: "frozen", xSplit: 2, ySplit: 1 }];
+  sheet.columns.forEach((column, index) => {
+    if (index < 2) {
+      column.width = index === 0 ? 16 : 12;
+    } else if (index === sheet.columns.length - 1) {
+      column.width = 14;
+    } else {
+      column.width = state.selectedMetric === "all" ? 13 : 12;
+    }
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  downloadBinary(buffer, buildExportFileName());
+}
+
+function buildExportFileName() {
+  const metricLabels = {
+    all: "全表示",
+    count: "台数",
+    seatShare: "台数シェア",
+    salesShare: "売上シェア",
+    profitShare: "補粗利シェア"
+  };
+  const store = state.selectedStore === "全店舗" ? "全店舗" : state.selectedStore;
+  const rate = state.selectedRate === "全レート" ? "全レート" : state.selectedRate;
+  const period = `${state.periodStart || "start"}_${state.periodEnd || "end"}`;
+  return `share-dashboard_${store}_${rate}_${metricLabels[state.selectedMetric] || "出力"}_${period}.xlsx`;
+}
+
+function downloadBinary(buffer, fileName) {
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function stripHtml(value) {
+  return String(value || "").replace(/<[^>]*>/g, "").trim();
+}
+
+function styleExportRow(row, cellMeta) {
+  row.height = 22;
+  row.eachCell((cell, colNumber) => {
+    cell.border = bottomBorder();
+    cell.alignment = {
+      vertical: "middle",
+      horizontal: colNumber <= 2 ? "left" : "right"
+    };
+    if (colNumber <= 2) {
+      return;
+    }
+    if (colNumber === row.cellCount) {
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+      if (String(cell.value || "").includes("過少")) {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE3F1E5" } };
+        cell.font = { color: { argb: "FF1F5A2A" }, bold: true };
+      } else if (String(cell.value || "").includes("過多")) {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF7E2E2" } };
+        cell.font = { color: { argb: "FF953F3F" }, bold: true };
+      }
+      return;
+    }
+    const meta = cellMeta[colNumber - 3];
+    if (!meta) {
+      return;
+    }
+    const fillColor = getExcelToneColor(meta.tone.className, meta.tone.strength);
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fillColor } };
+  });
+}
+
+function bottomBorder() {
+  return {
+    bottom: { style: "thin", color: { argb: "FFE5EAF0" } }
+  };
+}
+
+function getExcelToneColor(className, strength) {
+  const safeStrength = Math.max(0, Math.min(100, Number(strength) || 0));
+  if (className === "metric-high") {
+    return mixHex("FFFFFF", "CFE7D0", safeStrength / 100);
+  }
+  if (className === "metric-low") {
+    return mixHex("FFFFFF", "F1CFCF", safeStrength / 100);
+  }
+  return mixHex("FFFFFF", "EDF1F4", Math.max(0.2, safeStrength / 100));
+}
+
+function mixHex(baseHex, targetHex, ratio) {
+  const base = hexToRgb(baseHex);
+  const target = hexToRgb(targetHex);
+  const mix = {
+    r: Math.round(base.r + (target.r - base.r) * ratio),
+    g: Math.round(base.g + (target.g - base.g) * ratio),
+    b: Math.round(base.b + (target.b - base.b) * ratio)
+  };
+  return `FF${rgbToHex(mix.r)}${rgbToHex(mix.g)}${rgbToHex(mix.b)}`;
+}
+
+function hexToRgb(hex) {
+  const normalized = hex.replace("#", "");
+  return {
+    r: Number.parseInt(normalized.slice(0, 2), 16),
+    g: Number.parseInt(normalized.slice(2, 4), 16),
+    b: Number.parseInt(normalized.slice(4, 6), 16)
+  };
+}
+
+function rgbToHex(value) {
+  return value.toString(16).padStart(2, "0").toUpperCase();
 }
 
 function normalizePeriod() {
@@ -1177,6 +1395,10 @@ function unique(values) {
 
 function formatPercent(value) {
   return Number.isFinite(value) ? `${value.toFixed(1)}%` : "-";
+}
+
+function formatPercentCsv(value) {
+  return Number.isFinite(value) ? `${value.toFixed(1)}%` : "";
 }
 
 function formatCount(value) {
