@@ -1,0 +1,33 @@
+C:\Users\knanbu\OneDrive - ＮＥＸＵＳ株式会社\ドキュメント\New project\PS台数シェア推移
+
+
+
+PS台数シェア推移 ダッシュボード 更新手順
+
+1. 新しい月フォルダをこのフォルダ直下に追加する
+   例: 2026年3月
+
+2. 月フォルダ内に以下のCSVを入れる
+   - チェーン店レポート_種別_店舗全体実績_*.csv
+   - チェーン店レポート_種別_4円超パチンコ_*.csv
+   - チェーン店レポート_種別_1円パチンコ_*.csv
+   - チェーン店レポート_種別_1円未満P_*.csv
+   - チェーン店レポート_種別_20円超パチスロ_*.csv
+   - チェーン店レポート_種別_5円スロット_*.csv
+   - チェーン店レポート_種別_5円未満S_*.csv
+
+3. update_dashboard_data.bat をダブルクリックする
+   これで以下が更新される
+   - data/dashboard-data.csv
+   - data/dashboard-data.json
+   - data/dashboard-data.js
+
+4. ターミナルまたは PowerShell でこのフォルダを開いて実行
+   git commit -m "Add 2026-03 dashboard data"
+   git push
+
+5. GitHub Pages 反映後、全員が新しい月を閲覧可能
+
+補足
+- index.html の初期パスワードは 7777
+- 隠し読込パネルのパスワードは Nexus3939
