@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>レート別シェアバランス ダッシュボード</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="page-header panel">
+      <div class="header-title">
+        <p class="header-kicker">Share Dashboard</p>
+        <h1 id="dashboardTitle">店舗別・年月別シェア一覧</h1>
+      </div>
+      <div class="header-controls">
+        <div class="control control-nav">
+          <span>店舗選択</span>
+          <div class="nav-select-wrap">
+            <button id="storePrevButton" class="nav-button" type="button" aria-label="前の店舗">＜</button>
+            <select id="storeSelect"></select>
+            <button id="storeNextButton" class="nav-button" type="button" aria-label="次の店舗">＞</button>
+          </div>
+        </div>
+        <label class="control">
+          <span>レート</span>
+          <select id="rateSelect"></select>
+        </label>
+        <label class="control">
+          <span>表示項目</span>
+          <select id="metricSelect">
+            <option value="all">全表示</option>
+            <option value="count">台数</option>
+            <option value="seatShare">台数シェア</option>
+            <option value="salesShare">売上シェア</option>
+            <option value="profitShare">補粗利シェア</option>
+          </select>
+        </label>
+        <div class="control control-period">
+          <span>表示期間</span>
+          <button id="periodTrigger" class="period-trigger" type="button">全期間</button>
+        </div>
+      </div>
+    </header>
+
+    <section id="periodPanel" class="panel period-panel hidden">
+      <div class="period-panel-body">
+        <div class="period-year-column">
+          <div class="period-year-head">
+            <button id="periodStartYearPrev" class="period-year-nav" type="button" aria-label="開始年の前年">＜</button>
+            <div id="periodStartYearLabel" class="period-year-label">2025年</div>
+            <button id="periodStartYearNext" class="period-year-nav" type="button" aria-label="開始年の翌年">＞</button>
+          </div>
+          <div id="periodStartMonths" class="period-month-grid"></div>
+        </div>
+        <div class="period-year-column">
+          <div class="period-year-head">
+            <button id="periodEndYearPrev" class="period-year-nav" type="button" aria-label="終了年の前年">＜</button>
+            <div id="periodEndYearLabel" class="period-year-label">2026年</div>
+            <button id="periodEndYearNext" class="period-year-nav" type="button" aria-label="終了年の翌年">＞</button>
+          </div>
+          <div id="periodEndMonths" class="period-month-grid"></div>
+        </div>
+        <div class="period-side">
+          <div class="period-preview">
+            <span>期間</span>
+            <strong id="periodPreviewText">全期間</strong>
+          </div>
+          <div class="period-actions">
+            <button id="periodClearButton" class="button ghost" type="button">全期間</button>
+            <button id="periodApplyButton" class="button primary" type="button">検索実行</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="importPanel" class="panel import-panel hidden">
+      <div class="section-head">データ読込設定</div>
+      <div class="import-grid">
+        <label class="control">
+          <span>パスワード</span>
+          <input id="passwordInput" type="password" placeholder="パスワードを入力">
+        </label>
+        <label class="control">
+          <span>反映月</span>
+          <select id="importMonthSelect"></select>
+        </label>
+        <label class="control import-file">
+          <span>アップロード</span>
+          <input id="fileInput" type="file" accept=".zip,.csv,.json" disabled>
+        </label>
+      </div>
+      <p id="importStatus" class="import-status">ZIP / CSV / JSON を選択すると読込します。</p>
+    </section>
+
+    <section id="emptyState" class="empty-state panel hidden">
+      <div class="empty-illustration" aria-hidden="true">
+        <div class="empty-bar"></div>
+        <div class="empty-bar empty-bar-short"></div>
+        <div class="empty-box"></div>
+      </div>
+      <h2>表示できるデータがありません</h2>
+      <p>CSV または JSON を読み込むと一覧を表示できます。</p>
+      <button id="emptyOpenImportButton" class="button primary empty-button" type="button">データ読込</button>
+    </section>
+
+    <main id="dashboard" class="dashboard hidden">
+      <section class="panel">
+        <div class="section-head">店舗別・年月別シェア一覧</div>
+        <div class="table-wrap">
+          <table class="matrix-table">
+            <thead id="matrixHead"></thead>
+            <tbody id="trendCards"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./data/dashboard-data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+Thumbs.db
+.DS_Store
+
+# Local editor / temp files
+*.tmp
+*.log
+*.bak
+
+# Python cache
+__pycache__/
+*.pyc
+
