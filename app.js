@@ -12,7 +12,7 @@ const RAW_RATE_FILE_PREFIXES = {
   "5円S": "チェーン店レポート_種別_5円スロット",
   "5円未満S": "チェーン店レポート_種別_5円未満S"
 };
-const AI_DIAGNOSIS_TOOLTIP = "判定は直近3か月です。過少傾向: 売上シェア > 補粗利シェア > 台数シェア。過多傾向: 売上シェア < 補粗利シェア < 台数シェア。3か月の多数方向で表示します。";
+const AI_DIAGNOSIS_TOOLTIP = "判定は直近3か月平均です。各月で 売上シェア > 補粗利シェア > 台数シェア を +1、売上シェア < 補粗利シェア < 台数シェア を -1 として平均し、プラスなら過少傾向、マイナスなら過多傾向、0付近は空欄です。";
 const STATUS_CLASS = {
   "不足": "status-shortage",
   "過剰": "status-excess",
@@ -865,10 +865,7 @@ function getRateAiTrendScore(store, rate) {
   if (!scores.length) {
     return null;
   }
-  const sum = scores.reduce((acc, value) => acc + value, 0);
-  if (sum > 0) return 1;
-  if (sum < 0) return -1;
-  return 0;
+  return average(scores);
 }
 
 function getStoreSortValue(store, month, targetRates) {
