@@ -2,6 +2,15 @@ const RATE_ORDER = ["4円超P", "1円P", "1円未満P", "20円超S", "5円S", "5
 const AI_TARGET_RATES = new Set(["4円超P", "20円超S"]);
 const IMPORT_PASSWORD = "Nexus3939";
 const ACCESS_PASSWORD = "7777";
+const RAW_TOTAL_FILE_PREFIX = "チェーン店レポート_種別_店舗全体実績";
+const RAW_RATE_FILE_PREFIXES = {
+  "4円超P": "チェーン店レポート_種別_4円超パチンコ",
+  "1円P": "チェーン店レポート_種別_1円パチンコ",
+  "1円未満P": "チェーン店レポート_種別_1円未満P",
+  "20円超S": "チェーン店レポート_種別_20円超パチスロ",
+  "5円S": "チェーン店レポート_種別_5円スロット",
+  "5円未満S": "チェーン店レポート_種別_5円未満S"
+};
 const AI_DIAGNOSIS_TOOLTIP = "判定は直近月です。過少傾向: 売上シェア > 補粗利シェア > 台数シェア。過多傾向: 売上シェア < 補粗利シェア < 台数シェア。";
 const STATUS_CLASS = {
   "不足": "status-shortage",
@@ -257,19 +266,39 @@ async function parseZipFile(file) {
   const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
   const entries = Object.values(zip.files).filter((entry) => !entry.dir);
   const rowSets = [];
+  const csvEntries = [];
   for (const entry of entries) {
     const name = entry.name.toLowerCase();
     if (name.endsWith(".json")) {
-      rowSets.push(parseJson(await entry.async("string")));
+      rowSets.push(parseJson(decodeText(await entry.async("uint8array"))));
     } else if (name.endsWith(".csv")) {
-      rowSets.push(parseCsv(await entry.async("string")));
+      csvEntries.push({
+        name: entry.name,
+        text: decodeText(await entry.async("uint8array"))
+      });
     }
   }
-  const merged = rowSets.flat();
-  if (!merged.length) {
-    throw new Error("ZIP内にCSVまたはJSONがありません");
+
+  const directDashboardRows = rowSets.flat().concat(
+    csvEntries
+      .filter((entry) => /dashboard-data|sample-data/i.test(entry.name))
+      .flatMap((entry) => parseCsv(entry.text))
+  );
+  if (directDashboardRows.length) {
+    return directDashboardRows;
   }
-  return merged;
+
+  const rawMonthlyRows = buildDashboardRowsFromRawZip(csvEntries);
+  if (rawMonthlyRows.length) {
+    return rawMonthlyRows;
+  }
+
+  const looseCsvRows = csvEntries.flatMap((entry) => parseCsv(entry.text));
+  if (looseCsvRows.length) {
+    return looseCsvRows;
+  }
+
+  throw new Error("ZIP内に利用できるCSVまたはJSONがありません");
 }
 
 function applyImportMonth(rows, month) {
@@ -761,6 +790,179 @@ function splitCsvLine(line) {
   }
   result.push(current);
   return result;
+}
+
+function decodeText(uint8Array) {
+  const encodings = ["utf-8", "shift-jis"];
+  for (const encoding of encodings) {
+    try {
+      const text = new TextDecoder(encoding).decode(uint8Array);
+      if (text.includes("店舗名") || text.includes("年月") || text.includes("レート区分")) {
+        return text;
+      }
+      if (encoding === "utf-8" && text.charCodeAt(0) === 0xfeff) {
+        return text;
+      }
+      if (encoding === "utf-8") {
+        return text;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+  return new TextDecoder("utf-8").decode(uint8Array);
+}
+
+function buildDashboardRowsFromRawZip(csvEntries) {
+  if (!csvEntries.length) {
+    return [];
+  }
+
+  const totalEntry = csvEntries.find((entry) => entry.name.includes(RAW_TOTAL_FILE_PREFIX));
+  if (!totalEntry) {
+    return [];
+  }
+
+  const totals = indexRowsByStore(parseCsv(totalEntry.text));
+  if (!Object.keys(totals).length) {
+    return [];
+  }
+
+  const latestStoreOrder = loadZipStoreOrder(csvEntries);
+  const detectedMonth = detectMonthFromZipEntries(csvEntries);
+  const rateMaps = Object.fromEntries(
+    Object.entries(RAW_RATE_FILE_PREFIXES).map(([rate, prefix]) => {
+      const entry = csvEntries.find((item) => item.name.includes(prefix));
+      return [rate, indexRowsByStore(entry ? parseCsv(entry.text) : [])];
+    })
+  );
+
+  const rows = [];
+  Object.entries(totals).forEach(([storeName, totalRow]) => {
+    RATE_ORDER.forEach((rate) => {
+      const rateRow = rateMaps[rate]?.[storeName] || {};
+      const seatCount = toNumber(rateRow["台数"]) ?? 0;
+      const totalSeats = toNumber(totalRow["台数"]);
+      const sales = toNumber(rateRow["売上合計(千円)"]) ?? 0;
+      const totalSales = toNumber(totalRow["売上合計(千円)"]);
+      const profit = toNumber(rateRow["補粗利合計"]) ?? 0;
+      const totalProfit = toNumber(totalRow["補粗利合計"]);
+      const seatShare = calcShare(seatCount, totalSeats);
+      const salesShare = calcShare(sales, totalSales);
+      const profitShare = calcShare(profit, totalProfit);
+      const salesDiff = diffOrNone(salesShare, seatShare);
+      const profitDiff = diffOrNone(profitShare, seatShare);
+      const avgDiff = average([salesDiff, profitDiff]);
+
+      rows.push({
+        年月: detectedMonth,
+        店舗名: storeName,
+        店舗表示順: latestStoreOrder[storeName] ?? null,
+        レート区分: rate,
+        台数: roundCount(seatCount),
+        店舗全体台数: roundCount(totalSeats),
+        台数シェア: roundMaybe(seatShare),
+        売上合計_千円: roundCount(sales),
+        店舗全体売上_千円: roundCount(totalSales),
+        売上シェア: roundMaybe(salesShare),
+        補粗利合計: roundCount(profit),
+        店舗全体補粗利: roundCount(totalProfit),
+        補粗利シェア: roundMaybe(profitShare),
+        売上差_pt: roundMaybe(salesDiff),
+        補粗利差_pt: roundMaybe(profitDiff),
+        平均差_pt: roundMaybe(avgDiff),
+        判定: classifyDiffs(salesDiff, profitDiff, state.threshold),
+        優先度: calcPriorityFromDiffs(salesDiff, profitDiff, state.threshold)
+      });
+    });
+  });
+
+  return rows;
+}
+
+function loadZipStoreOrder(csvEntries) {
+  const entry = csvEntries.find((item) => item.name.includes(RAW_RATE_FILE_PREFIXES["4円超P"]));
+  if (!entry) {
+    return {};
+  }
+  const order = {};
+  parseCsv(entry.text).forEach((row, index) => {
+    const storeName = normalizeStoreName(row["店舗名"]);
+    if (!storeName) return;
+    order[storeName] = index + 1;
+  });
+  return order;
+}
+
+function indexRowsByStore(rows) {
+  return rows.reduce((acc, row) => {
+    const storeName = normalizeStoreName(row["店舗名"]);
+    if (!storeName) {
+      return acc;
+    }
+    acc[storeName] = row;
+    return acc;
+  }, {});
+}
+
+function normalizeStoreName(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "店舗平均") {
+    return "";
+  }
+  return text.replace(/^\d+\s+/, "");
+}
+
+function detectMonthFromZipEntries(csvEntries) {
+  const matchedName = csvEntries.map((entry) => entry.name).find((name) => /\d{8}/.test(name));
+  if (!matchedName) {
+    return state.importMonth || "";
+  }
+  const match = matchedName.match(/(\d{4})(\d{2})\d{2}/);
+  if (!match) {
+    return state.importMonth || "";
+  }
+  return `${match[1]}-${match[2]}`;
+}
+
+function calcShare(part, total) {
+  if (!Number.isFinite(part) || !Number.isFinite(total)) {
+    return null;
+  }
+  if (total === 0) {
+    return part === 0 ? 0 : null;
+  }
+  return (part / total) * 100;
+}
+
+function diffOrNone(a, b) {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    return null;
+  }
+  return a - b;
+}
+
+function roundMaybe(value) {
+  return Number.isFinite(value) ? round(value, 1) : null;
+}
+
+function roundCount(value) {
+  return Number.isFinite(value) ? Math.round(value) : null;
+}
+
+function classifyDiffs(salesDiff, profitDiff, threshold) {
+  if (!Number.isFinite(salesDiff) || !Number.isFinite(profitDiff)) return "適正";
+  if (salesDiff >= threshold && profitDiff >= threshold) return "不足";
+  if (salesDiff <= -threshold && profitDiff <= -threshold) return "過剰";
+  if (Math.abs(salesDiff) >= threshold || Math.abs(profitDiff) >= threshold) return "要確認";
+  return "適正";
+}
+
+function calcPriorityFromDiffs(salesDiff, profitDiff, threshold) {
+  const score = Math.max(Math.abs(salesDiff || 0), Math.abs(profitDiff || 0));
+  if (score >= threshold + 3) return "高";
+  if (score >= threshold) return "中";
+  return "低";
 }
 
 function buildSparkline(values) {
