@@ -957,7 +957,79 @@ function getStoreAiSortValue(store, targetRates) {
 }
 
 function exportCurrentPdfView() {
-  window.print();
+  if (!window.html2pdf) {
+    window.alert("PDF出力ライブラリを読み込めませんでした");
+    return;
+  }
+
+  const sourcePanel = document.querySelector("#dashboard .panel");
+  if (!sourcePanel) {
+    window.alert("PDF出力できるデータがありません");
+    return;
+  }
+
+  const exportRoot = document.createElement("div");
+  exportRoot.style.background = "#ffffff";
+  exportRoot.style.padding = "12px 16px";
+  exportRoot.style.color = "#1f2937";
+  exportRoot.style.fontFamily = "\"BIZ UDPGothic\", \"Yu Gothic UI\", Meiryo, sans-serif";
+  exportRoot.style.width = "1600px";
+
+  const title = document.createElement("div");
+  title.style.fontSize = "20px";
+  title.style.fontWeight = "700";
+  title.style.marginBottom = "8px";
+  title.textContent = "店舗別・年月別シェア一覧";
+  exportRoot.appendChild(title);
+
+  const sub = document.createElement("div");
+  sub.style.fontSize = "12px";
+  sub.style.color = "#6b7280";
+  sub.style.marginBottom = "12px";
+  sub.textContent = `店舗: ${state.selectedStores.length ? state.selectedStores.join(" / ") : state.selectedStore}  レート: ${state.selectedRate}  表示項目: ${els.metricSelect.options[els.metricSelect.selectedIndex]?.text || ""}`;
+  exportRoot.appendChild(sub);
+
+  const clonedTableWrap = sourcePanel.querySelector(".table-wrap").cloneNode(true);
+  clonedTableWrap.style.overflow = "visible";
+  clonedTableWrap.style.maxWidth = "none";
+  clonedTableWrap.querySelectorAll("button, input").forEach((el) => {
+    if (el.tagName === "BUTTON") {
+      const span = document.createElement("span");
+      span.textContent = el.textContent.replace(/[▲▼]/g, "").trim();
+      el.replaceWith(span);
+    } else {
+      el.remove();
+    }
+  });
+  clonedTableWrap.querySelectorAll(".store-select-row").forEach((rowEl) => {
+    rowEl.style.display = "inline-flex";
+    rowEl.style.alignItems = "center";
+    rowEl.style.gap = "0";
+  });
+  clonedTableWrap.querySelectorAll(".store-link-button").forEach((el) => {
+    el.style.border = "none";
+    el.style.background = "transparent";
+    el.style.padding = "0";
+    el.style.color = "#1f2937";
+    el.style.fontWeight = "400";
+  });
+  exportRoot.appendChild(clonedTableWrap);
+
+  document.body.appendChild(exportRoot);
+
+  const fileName = buildExportFileName().replace(/\.xlsx$/i, ".pdf");
+  const opt = {
+    margin: [8, 8, 8, 8],
+    filename: fileName,
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+    jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+    pagebreak: { mode: ["css", "legacy"] }
+  };
+
+  window.html2pdf().set(opt).from(exportRoot).save().finally(() => {
+    exportRoot.remove();
+  });
 }
 
 function getStoreAiSortMeta(store, targetRates) {
