@@ -580,6 +580,7 @@ function renderTrendCards() {
         }
       }
       syncSelectedStoresToggle();
+      render();
     });
   });
 }
