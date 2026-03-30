@@ -154,7 +154,109 @@
   <script src="./data/dashboard-data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="./app.js"></script>
+  <script>
+    function buildPdfMonthBlockFromUi(cell) {
+      if (!cell) return "-";
+      const main = cell.querySelector(".matrix-seat");
+      const rows = [...cell.querySelectorAll(".matrix-share-row")];
+      const lines = [];
+      if (main) lines.push(main.textContent.trim());
+      rows.forEach((row) => {
+        const text = row.textContent.replace(/\s+/g, " ").trim();
+        if (text) lines.push(text);
+      });
+      return lines.join("\n") || "-";
+    }
+
+    window.exportCurrentPdfView = function () {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        window.alert("PDF出力ライブラリを読み込めませんでした");
+        return;
+      }
+
+      const table = document.querySelector(".matrix-table");
+      if (!table) {
+        window.alert("PDF出力できるデータがありません");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const title = "店舗別・年月別シェア一覧";
+      const selectedStoresLabel = document.querySelector("#storeSelect")?.value || "全店舗";
+      const selectedRateLabel = document.querySelector("#rateSelect")?.value || "全レート";
+      const selectedMetricLabel = document.querySelector("#metricSelect")?.selectedOptions?.[0]?.textContent || "";
+      const sub = `店舗: ${selectedStoresLabel}  レート: ${selectedRateLabel}  表示項目: ${selectedMetricLabel}`;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      doc.text(title, 10, 10);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(90, 98, 108);
+      doc.text(sub, 10, 16);
+
+      const headCells = [...table.querySelectorAll("thead th")].map((th) => th.textContent.replace(/[▲▼]/g, "").trim());
+      const bodyRows = [...table.querySelectorAll("tbody tr")].map((tr) => {
+        const tds = [...tr.querySelectorAll("td")];
+        return tds.map((td, index) => {
+          if (index >= 2 && index < tds.length - 1) {
+            return buildPdfMonthBlockFromUi(td);
+          }
+          return td.textContent.replace(/\s+/g, " ").trim();
+        });
+      });
+
+      doc.autoTable({
+        head: [headCells],
+        body: bodyRows,
+        startY: 20,
+        styles: {
+          font: "helvetica",
+          fontSize: 7,
+          cellPadding: 1.6,
+          overflow: "linebreak",
+          valign: "top",
+          lineColor: [229, 234, 240],
+          lineWidth: 0.1
+        },
+        headStyles: {
+          fillColor: [243, 245, 247],
+          textColor: [51, 65, 85],
+          halign: "center",
+          valign: "middle"
+        },
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { cellWidth: 16 }
+        },
+        didParseCell: function (data) {
+          if (data.section === "body") {
+            if (data.column.index >= 2 && data.column.index < headCells.length - 1) {
+              data.cell.styles.fillColor = [245, 247, 248];
+            }
+            if (data.column.index === headCells.length - 1) {
+              const text = String(data.cell.raw || "");
+              if (text.includes("過少傾向")) {
+                data.cell.styles.fillColor = [227, 241, 229];
+                data.cell.styles.textColor = [31, 90, 42];
+                data.cell.styles.fontStyle = "bold";
+              } else if (text.includes("過多傾向")) {
+                data.cell.styles.fillColor = [247, 226, 226];
+                data.cell.styles.textColor = [149, 63, 63];
+                data.cell.styles.fontStyle = "bold";
+              }
+            }
+          }
+        }
+      });
+
+      const fileNameBase = `share-dashboard_${selectedStoresLabel}_${selectedRateLabel}_${selectedMetricLabel || "PDF"}`.replace(/[\\/:*?"<>|]/g, "_");
+      doc.save(`${fileNameBase}.pdf`);
+    };
+  </script>
 </body>
 </html>
