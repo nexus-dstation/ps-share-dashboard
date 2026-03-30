@@ -13,7 +13,7 @@ const RAW_RATE_FILE_PREFIXES = {
   "5円未満S": "チェーン店レポート_種別_5円未満S"
 };
 const RAW_SUM_KEYS = new Set(["台数", "自店客数", "商圏客数", "売上合計(千円)", "補粗利合計", "アウト"]);
-const AI_DIAGNOSIS_TOOLTIP = "判定は直近3か月平均です。売上シェア・補粗利シェアと台数シェアの差から月次強度を出し、その3か月平均を AI強度 とします。pt はその強さを見やすく換算した値で、高いほど優先度が高いです。";
+const AI_DIAGNOSIS_TOOLTIP = "判断基準：((売上シェア - 台数シェア) + (補粗利シェア - 台数シェア)) / 2\n判定は直近3か月平均。";
 const STATUS_CLASS = {
   "不足": "status-shortage",
   "過剰": "status-excess",
