@@ -431,6 +431,41 @@ th {
   font-weight: 700;
 }
 
+.matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 0 18px 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.matrix-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-chip {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  display: inline-block;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.legend-high {
+  background: #dcebdc;
+}
+
+.legend-low {
+  background: #f4e2e2;
+}
+
+.legend-mid {
+  background: #edf1f4;
+}
+
 .month-sort-button {
   border: 0;
   background: transparent;
