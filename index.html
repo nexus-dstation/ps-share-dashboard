@@ -172,6 +172,9 @@
       }
 
       const exportRoot = document.createElement("div");
+      exportRoot.style.position = "fixed";
+      exportRoot.style.left = "-20000px";
+      exportRoot.style.top = "0";
       exportRoot.style.background = "#ffffff";
       exportRoot.style.padding = "12px 16px";
       exportRoot.style.color = "#1f2937";
@@ -221,32 +224,34 @@
       });
       exportRoot.appendChild(clonedTableWrap);
       document.body.appendChild(exportRoot);
+      try {
+        const canvas = await window.html2canvas(exportRoot, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff"
+        });
 
-      const canvas = await window.html2canvas(exportRoot, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff"
-      });
-      exportRoot.remove();
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 8;
+        const imgWidth = pageWidth - margin * 2;
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+        const totalPages = Math.max(1, Math.ceil(imgHeight / (pageHeight - margin * 2)));
+        const imgData = canvas.toDataURL("image/jpeg", 0.98);
 
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 8;
-      const imgWidth = pageWidth - margin * 2;
-      const imgHeight = canvas.height * imgWidth / canvas.width;
-      const totalPages = Math.max(1, Math.ceil(imgHeight / (pageHeight - margin * 2)));
-      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+        for (let page = 0; page < totalPages; page += 1) {
+          if (page > 0) doc.addPage();
+          const y = margin - page * (pageHeight - margin * 2);
+          doc.addImage(imgData, "JPEG", margin, y, imgWidth, imgHeight);
+        }
 
-      for (let page = 0; page < totalPages; page += 1) {
-        if (page > 0) doc.addPage();
-        const y = margin - page * (pageHeight - margin * 2);
-        doc.addImage(imgData, "JPEG", margin, y, imgWidth, imgHeight);
+        const fileNameBase = `share-dashboard_${selectedStoresLabel}_${selectedRateLabel}_${selectedMetricLabel || "PDF"}`.replace(/[\\/:*?"<>|]/g, "_");
+        doc.save(`${fileNameBase}.pdf`);
+      } finally {
+        exportRoot.remove();
       }
-
-      const fileNameBase = `share-dashboard_${selectedStoresLabel}_${selectedRateLabel}_${selectedMetricLabel || "PDF"}`.replace(/[\\/:*?"<>|]/g, "_");
-      doc.save(`${fileNameBase}.pdf`);
     };
   </script>
 </body>
