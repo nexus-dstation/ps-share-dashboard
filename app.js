@@ -22,6 +22,7 @@ const STATUS_CLASS = {
 };
 
 const els = {
+  dataUpdatedBadge: document.querySelector("#dataUpdatedBadge"),
   dashboard: document.querySelector("#dashboard"),
   emptyState: document.querySelector("#emptyState"),
   accessGate: document.querySelector("#accessGate"),
@@ -90,6 +91,7 @@ init();
 
 async function init() {
   bindEvents();
+  syncDataUpdatedBadge();
   const savedRows = loadSavedRows();
   if (savedRows.length) {
     loadData(savedRows, "saved-local-data");
@@ -103,6 +105,13 @@ async function init() {
   if (!loaded) {
     loadData(buildFallbackSampleData(), "fallback-generated");
   }
+}
+
+function syncDataUpdatedBadge() {
+  const updatedAt = window.__DASHBOARD_DATA_UPDATED_AT__ || "";
+  els.dataUpdatedBadge.textContent = updatedAt
+    ? `更新データ: ${updatedAt}`
+    : "更新データ: --";
 }
 
 function bindEvents() {

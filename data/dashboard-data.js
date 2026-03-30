@@ -1,3 +1,4 @@
+window.__DASHBOARD_DATA_UPDATED_AT__ = "2026-03-30 09:44";
 window.__DASHBOARD_DATA__ = [
   {
     "年月": "2025-07",

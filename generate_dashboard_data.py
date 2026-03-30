@@ -4,6 +4,7 @@ import csv
 import json
 import re
 from pathlib import Path
+from datetime import datetime
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -267,7 +268,12 @@ def write_json(path: Path, rows: list[dict]) -> None:
 
 def write_js(path: Path, rows: list[dict]) -> None:
     payload = json.dumps(rows, ensure_ascii=False, indent=2)
-    path.write_text(f"window.__DASHBOARD_DATA__ = {payload};\n", encoding="utf-8")
+    updated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+    content = (
+        f"window.__DASHBOARD_DATA_UPDATED_AT__ = {json.dumps(updated_at, ensure_ascii=False)};\n"
+        f"window.__DASHBOARD_DATA__ = {payload};\n"
+    )
+    path.write_text(content, encoding="utf-8")
 
 
 if __name__ == "__main__":
