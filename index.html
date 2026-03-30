@@ -154,105 +154,96 @@
   <script src="./data/dashboard-data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="./app.js"></script>
   <script>
-    function buildPdfMonthBlockFromUi(cell) {
-      if (!cell) return "-";
-      const main = cell.querySelector(".matrix-seat");
-      const rows = [...cell.querySelectorAll(".matrix-share-row")];
-      const lines = [];
-      if (main) lines.push(main.textContent.trim());
-      rows.forEach((row) => {
-        const text = row.textContent.replace(/\s+/g, " ").trim();
-        if (text) lines.push(text);
-      });
-      return lines.join("\n") || "-";
-    }
-
-    window.exportCurrentPdfView = function () {
-      if (!window.jspdf || !window.jspdf.jsPDF) {
+    window.exportCurrentPdfView = async function () {
+      if (!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF) {
         window.alert("PDF出力ライブラリを読み込めませんでした");
         return;
       }
 
-      const table = document.querySelector(".matrix-table");
-      if (!table) {
+      const sourcePanel = document.querySelector("#dashboard .panel");
+      if (!sourcePanel) {
         window.alert("PDF出力できるデータがありません");
         return;
       }
 
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-      const title = "店舗別・年月別シェア一覧";
+      const exportRoot = document.createElement("div");
+      exportRoot.style.background = "#ffffff";
+      exportRoot.style.padding = "12px 16px";
+      exportRoot.style.color = "#1f2937";
+      exportRoot.style.fontFamily = "\"BIZ UDPGothic\", \"Yu Gothic UI\", Meiryo, sans-serif";
+      exportRoot.style.width = "1600px";
+
+      const title = document.createElement("div");
+      title.style.fontSize = "20px";
+      title.style.fontWeight = "700";
+      title.style.marginBottom = "8px";
+      title.textContent = "店舗別・年月別シェア一覧";
+      exportRoot.appendChild(title);
+
       const selectedStoresLabel = document.querySelector("#storeSelect")?.value || "全店舗";
       const selectedRateLabel = document.querySelector("#rateSelect")?.value || "全レート";
       const selectedMetricLabel = document.querySelector("#metricSelect")?.selectedOptions?.[0]?.textContent || "";
-      const sub = `店舗: ${selectedStoresLabel}  レート: ${selectedRateLabel}  表示項目: ${selectedMetricLabel}`;
+      const sub = document.createElement("div");
+      sub.style.fontSize = "12px";
+      sub.style.color = "#6b7280";
+      sub.style.marginBottom = "12px";
+      sub.textContent = `店舗: ${selectedStoresLabel}  レート: ${selectedRateLabel}  表示項目: ${selectedMetricLabel}`;
+      exportRoot.appendChild(sub);
 
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(15);
-      doc.text(title, 10, 10);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(90, 98, 108);
-      doc.text(sub, 10, 16);
-
-      const headCells = [...table.querySelectorAll("thead th")].map((th) => th.textContent.replace(/[▲▼]/g, "").trim());
-      const bodyRows = [...table.querySelectorAll("tbody tr")].map((tr) => {
-        const tds = [...tr.querySelectorAll("td")];
-        return tds.map((td, index) => {
-          if (index >= 2 && index < tds.length - 1) {
-            return buildPdfMonthBlockFromUi(td);
-          }
-          return td.textContent.replace(/\s+/g, " ").trim();
-        });
-      });
-
-      doc.autoTable({
-        head: [headCells],
-        body: bodyRows,
-        startY: 20,
-        styles: {
-          font: "helvetica",
-          fontSize: 7,
-          cellPadding: 1.6,
-          overflow: "linebreak",
-          valign: "top",
-          lineColor: [229, 234, 240],
-          lineWidth: 0.1
-        },
-        headStyles: {
-          fillColor: [243, 245, 247],
-          textColor: [51, 65, 85],
-          halign: "center",
-          valign: "middle"
-        },
-        columnStyles: {
-          0: { cellWidth: 22 },
-          1: { cellWidth: 16 }
-        },
-        didParseCell: function (data) {
-          if (data.section === "body") {
-            if (data.column.index >= 2 && data.column.index < headCells.length - 1) {
-              data.cell.styles.fillColor = [245, 247, 248];
-            }
-            if (data.column.index === headCells.length - 1) {
-              const text = String(data.cell.raw || "");
-              if (text.includes("過少傾向")) {
-                data.cell.styles.fillColor = [227, 241, 229];
-                data.cell.styles.textColor = [31, 90, 42];
-                data.cell.styles.fontStyle = "bold";
-              } else if (text.includes("過多傾向")) {
-                data.cell.styles.fillColor = [247, 226, 226];
-                data.cell.styles.textColor = [149, 63, 63];
-                data.cell.styles.fontStyle = "bold";
-              }
-            }
-          }
+      const clonedTableWrap = sourcePanel.querySelector(".table-wrap").cloneNode(true);
+      clonedTableWrap.style.overflow = "visible";
+      clonedTableWrap.style.maxWidth = "none";
+      clonedTableWrap.querySelectorAll("button, input").forEach((el) => {
+        if (el.tagName === "BUTTON") {
+          const span = document.createElement("span");
+          span.textContent = el.textContent.replace(/[▲▼]/g, "").trim();
+          el.replaceWith(span);
+        } else {
+          el.remove();
         }
       });
+      clonedTableWrap.querySelectorAll(".store-select-row").forEach((rowEl) => {
+        rowEl.style.display = "inline-flex";
+        rowEl.style.alignItems = "center";
+        rowEl.style.gap = "0";
+      });
+      clonedTableWrap.querySelectorAll(".store-link-button").forEach((el) => {
+        el.style.border = "none";
+        el.style.background = "transparent";
+        el.style.padding = "0";
+        el.style.color = "#1f2937";
+        el.style.fontWeight = "400";
+      });
+      exportRoot.appendChild(clonedTableWrap);
+      document.body.appendChild(exportRoot);
+
+      const canvas = await window.html2canvas(exportRoot, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff"
+      });
+      exportRoot.remove();
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 8;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = canvas.height * imgWidth / canvas.width;
+      const totalPages = Math.max(1, Math.ceil(imgHeight / (pageHeight - margin * 2)));
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+
+      for (let page = 0; page < totalPages; page += 1) {
+        if (page > 0) doc.addPage();
+        const y = margin - page * (pageHeight - margin * 2);
+        doc.addImage(imgData, "JPEG", margin, y, imgWidth, imgHeight);
+      }
 
       const fileNameBase = `share-dashboard_${selectedStoresLabel}_${selectedRateLabel}_${selectedMetricLabel || "PDF"}`.replace(/[\\/:*?"<>|]/g, "_");
       doc.save(`${fileNameBase}.pdf`);
