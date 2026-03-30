@@ -255,4 +255,227 @@
     };
   </script>
 </body>
+<script>
+  window.exportCurrentPdfView = async function () {
+    if (!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF) {
+      window.alert("PDF出力ライブラリを読み込めませんでした");
+      return;
+    }
+
+    const sourcePanel = document.querySelector("#dashboard .panel");
+    const tableWrap = sourcePanel?.querySelector(".table-wrap");
+    if (!sourcePanel || !tableWrap) {
+      window.alert("PDF出力できる表示データがありません");
+      return;
+    }
+
+    const selectedStoreLabel = document.querySelector("#storeSelect")?.selectedOptions?.[0]?.textContent?.trim() || "全店舗";
+    const selectedRateLabel = document.querySelector("#rateSelect")?.selectedOptions?.[0]?.textContent?.trim() || "全レート";
+    const selectedMetricLabel = document.querySelector("#metricSelect")?.selectedOptions?.[0]?.textContent?.trim() || "全表示";
+
+    const exportRoot = document.createElement("div");
+    exportRoot.style.position = "fixed";
+    exportRoot.style.left = "-20000px";
+    exportRoot.style.top = "0";
+    exportRoot.style.zIndex = "-1";
+    exportRoot.style.background = "#ffffff";
+    exportRoot.style.padding = "12px 16px";
+    exportRoot.style.color = "#1f2937";
+    exportRoot.style.fontFamily = "\"BIZ UDPGothic\", \"Yu Gothic UI\", Meiryo, sans-serif";
+    exportRoot.style.width = "1600px";
+    exportRoot.style.boxSizing = "border-box";
+
+    const title = document.createElement("div");
+    title.style.fontSize = "20px";
+    title.style.fontWeight = "700";
+    title.style.marginBottom = "8px";
+    title.textContent = "店舗別・年月別シェア一覧";
+    exportRoot.appendChild(title);
+
+    const sub = document.createElement("div");
+    sub.style.fontSize = "12px";
+    sub.style.color = "#6b7280";
+    sub.style.marginBottom = "12px";
+    sub.textContent = `店舗: ${selectedStoreLabel}  レート: ${selectedRateLabel}  表示項目: ${selectedMetricLabel}`;
+    exportRoot.appendChild(sub);
+
+    const clonedTableWrap = tableWrap.cloneNode(true);
+    clonedTableWrap.style.overflow = "visible";
+    clonedTableWrap.style.maxWidth = "none";
+    clonedTableWrap.style.width = "auto";
+    clonedTableWrap.querySelectorAll("button, input").forEach((el) => {
+      if (el.tagName === "BUTTON") {
+        const span = document.createElement("span");
+        span.textContent = el.textContent.replace(/[<>]/g, "").trim();
+        span.style.color = "#1f2937";
+        span.style.fontWeight = "400";
+        el.replaceWith(span);
+      } else {
+        el.remove();
+      }
+    });
+    clonedTableWrap.querySelectorAll(".store-select-row").forEach((rowEl) => {
+      rowEl.style.display = "inline-flex";
+      rowEl.style.alignItems = "center";
+      rowEl.style.gap = "0";
+    });
+    clonedTableWrap.querySelectorAll(".store-link-button").forEach((el) => {
+      el.style.border = "none";
+      el.style.background = "transparent";
+      el.style.padding = "0";
+      el.style.color = "#1f2937";
+      el.style.fontWeight = "400";
+    });
+
+    exportRoot.appendChild(clonedTableWrap);
+    document.body.appendChild(exportRoot);
+
+    try {
+      const canvas = await window.html2canvas(exportRoot, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false
+      });
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 8;
+      const usableWidth = pageWidth - margin * 2;
+      const usableHeight = pageHeight - margin * 2;
+      const imageHeight = canvas.height * usableWidth / canvas.width;
+      const pageCount = Math.max(1, Math.ceil(imageHeight / usableHeight));
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+
+      for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+        if (pageIndex > 0) doc.addPage();
+        const y = margin - (pageIndex * usableHeight);
+        doc.addImage(imgData, "JPEG", margin, y, usableWidth, imageHeight);
+      }
+
+      const fileNameBase = `share-dashboard_${selectedStoreLabel}_${selectedRateLabel}_${selectedMetricLabel}`.replace(/[\\/:*?"<>|]/g, "_");
+      doc.save(`${fileNameBase}.pdf`);
+    } catch (error) {
+      console.error(error);
+      window.alert("PDF出力に失敗しました");
+    } finally {
+      exportRoot.remove();
+    }
+  };
+</script>
+<script>
+  window.exportCurrentPdfView = async function () {
+    if (!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF) {
+      window.alert("PDF export library is not available.");
+      return;
+    }
+
+    const sourcePanel = document.querySelector("#dashboard .panel");
+    const tableWrap = sourcePanel && sourcePanel.querySelector(".table-wrap");
+    if (!sourcePanel || !tableWrap) {
+      window.alert("No visible table data to export.");
+      return;
+    }
+
+    const storeSelect = document.querySelector("#storeSelect");
+    const rateSelect = document.querySelector("#rateSelect");
+    const metricSelect = document.querySelector("#metricSelect");
+    const selectedStoreLabel = storeSelect && storeSelect.selectedOptions[0] ? storeSelect.selectedOptions[0].textContent.trim() : "all-stores";
+    const selectedRateLabel = rateSelect && rateSelect.selectedOptions[0] ? rateSelect.selectedOptions[0].textContent.trim() : "all-rates";
+    const selectedMetricLabel = metricSelect && metricSelect.selectedOptions[0] ? metricSelect.selectedOptions[0].textContent.trim() : "all";
+
+    const exportRoot = document.createElement("div");
+    exportRoot.style.position = "fixed";
+    exportRoot.style.left = "-20000px";
+    exportRoot.style.top = "0";
+    exportRoot.style.zIndex = "-1";
+    exportRoot.style.background = "#ffffff";
+    exportRoot.style.padding = "12px 16px";
+    exportRoot.style.color = "#1f2937";
+    exportRoot.style.fontFamily = "\"BIZ UDPGothic\", \"Yu Gothic UI\", Meiryo, sans-serif";
+    exportRoot.style.width = "1600px";
+    exportRoot.style.boxSizing = "border-box";
+
+    const title = document.createElement("div");
+    title.style.fontSize = "20px";
+    title.style.fontWeight = "700";
+    title.style.marginBottom = "8px";
+    title.textContent = "Share Dashboard";
+    exportRoot.appendChild(title);
+
+    const sub = document.createElement("div");
+    sub.style.fontSize = "12px";
+    sub.style.color = "#6b7280";
+    sub.style.marginBottom = "12px";
+    sub.textContent = "Store: " + selectedStoreLabel + "  Rate: " + selectedRateLabel + "  Metric: " + selectedMetricLabel;
+    exportRoot.appendChild(sub);
+
+    const clonedTableWrap = tableWrap.cloneNode(true);
+    clonedTableWrap.style.overflow = "visible";
+    clonedTableWrap.style.maxWidth = "none";
+    clonedTableWrap.style.width = "auto";
+    clonedTableWrap.querySelectorAll("button, input").forEach(function (el) {
+      if (el.tagName === "BUTTON") {
+        const span = document.createElement("span");
+        span.textContent = el.textContent.replace(/[<>]/g, "").trim();
+        span.style.color = "#1f2937";
+        span.style.fontWeight = "400";
+        el.replaceWith(span);
+      } else {
+        el.remove();
+      }
+    });
+    clonedTableWrap.querySelectorAll(".store-select-row").forEach(function (rowEl) {
+      rowEl.style.display = "inline-flex";
+      rowEl.style.alignItems = "center";
+      rowEl.style.gap = "0";
+    });
+    clonedTableWrap.querySelectorAll(".store-link-button").forEach(function (el) {
+      el.style.border = "none";
+      el.style.background = "transparent";
+      el.style.padding = "0";
+      el.style.color = "#1f2937";
+      el.style.fontWeight = "400";
+    });
+
+    exportRoot.appendChild(clonedTableWrap);
+    document.body.appendChild(exportRoot);
+
+    try {
+      const canvas = await window.html2canvas(exportRoot, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false
+      });
+
+      const jsPDF = window.jspdf.jsPDF;
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 8;
+      const usableWidth = pageWidth - margin * 2;
+      const usableHeight = pageHeight - margin * 2;
+      const imageHeight = canvas.height * usableWidth / canvas.width;
+      const pageCount = Math.max(1, Math.ceil(imageHeight / usableHeight));
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+
+      for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+        if (pageIndex > 0) doc.addPage();
+        const y = margin - (pageIndex * usableHeight);
+        doc.addImage(imgData, "JPEG", margin, y, usableWidth, imageHeight);
+      }
+
+      const fileNameBase = ("share-dashboard_" + selectedStoreLabel + "_" + selectedRateLabel + "_" + selectedMetricLabel).replace(/[\\/:*?"<>|]/g, "_");
+      doc.save(fileNameBase + ".pdf");
+    } catch (error) {
+      console.error(error);
+      window.alert("PDF export failed.");
+    } finally {
+      exportRoot.remove();
+    }
+  };
+</script>
 </html>
