@@ -852,7 +852,7 @@ function sortStoresForView(stores, targetRates) {
       }
       const aSafe = Number.isFinite(aMeta.points) ? aMeta.points : Number.NEGATIVE_INFINITY;
       const bSafe = Number.isFinite(bMeta.points) ? bMeta.points : Number.NEGATIVE_INFINITY;
-      const diff = state.sortDirection === "asc" ? aSafe - bSafe : bSafe - aSafe;
+      const diff = bSafe - aSafe;
       return diff || state.storeOrder.indexOf(a) - state.storeOrder.indexOf(b);
     }
     const aValue = state.sortMonth === "__AI__" ? getStoreAiSortValue(a, targetRates) : getStoreSortValue(a, state.sortMonth, targetRates);
