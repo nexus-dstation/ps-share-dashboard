@@ -59,6 +59,9 @@ const els = {
   importStatus: document.querySelector("#importStatus"),
   trendCards: document.querySelector("#trendCards"),
   matrixHead: document.querySelector("#matrixHead"),
+  selectionActionBar: document.querySelector("#selectionActionBar"),
+  selectionShowOnlyButton: document.querySelector("#selectionShowOnlyButton"),
+  selectionClearButton: document.querySelector("#selectionClearButton"),
 };
 
 const state = {
@@ -156,6 +159,20 @@ function bindEvents() {
       return;
     }
     state.showSelectedStoresOnly = !state.showSelectedStoresOnly;
+    render();
+  });
+
+  els.selectionShowOnlyButton.addEventListener("click", () => {
+    if (!state.selectedStores.length) {
+      return;
+    }
+    state.showSelectedStoresOnly = !state.showSelectedStoresOnly;
+    render();
+  });
+
+  els.selectionClearButton.addEventListener("click", () => {
+    state.selectedStores = [];
+    state.showSelectedStoresOnly = false;
     render();
   });
 
@@ -1164,6 +1181,10 @@ function syncSelectedStoresToggle() {
     ? `選択店舗のみ表示 (${count})`
     : "選択店舗のみ表示";
   els.selectedStoresToggle.classList.toggle("active", state.showSelectedStoresOnly);
+
+  const hasSelection = count > 0;
+  els.selectionActionBar.classList.toggle("hidden", !hasSelection);
+  els.selectionShowOnlyButton.textContent = state.showSelectedStoresOnly ? `全体表示に戻す (${count})` : `選択店舗のみ表示 (${count})`;
 }
 
 function pushCurrentViewState() {
