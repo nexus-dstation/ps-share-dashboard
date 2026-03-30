@@ -224,6 +224,10 @@ select {
   gap: 8px;
 }
 
+#exportPdfButton {
+  display: none !important;
+}
+
 .period-trigger {
   height: 38px;
   border: 1px solid var(--line);

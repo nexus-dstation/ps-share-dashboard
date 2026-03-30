@@ -181,9 +181,9 @@ function bindEvents() {
     await exportCurrentView();
   });
 
-  els.exportPdfButton.addEventListener("click", () => {
-    exportCurrentPdfView();
-  });
+  if (els.exportPdfButton) {
+    els.exportPdfButton.style.display = "none";
+  }
 
   els.periodTrigger.addEventListener("click", () => {
     state.periodPanelOpen = !state.periodPanelOpen;
