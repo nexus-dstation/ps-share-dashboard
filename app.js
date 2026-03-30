@@ -36,6 +36,7 @@ const els = {
   rateSelect: document.querySelector("#rateSelect"),
   metricSelect: document.querySelector("#metricSelect"),
   exportExcelButton: document.querySelector("#exportExcelButton"),
+  exportPdfButton: document.querySelector("#exportPdfButton"),
   periodTrigger: document.querySelector("#periodTrigger"),
   periodPanel: document.querySelector("#periodPanel"),
   periodStartYearPrev: document.querySelector("#periodStartYearPrev"),
@@ -178,6 +179,10 @@ function bindEvents() {
 
   els.exportExcelButton.addEventListener("click", async () => {
     await exportCurrentView();
+  });
+
+  els.exportPdfButton.addEventListener("click", () => {
+    exportCurrentPdfView();
   });
 
   els.periodTrigger.addEventListener("click", () => {
@@ -949,6 +954,10 @@ function sortStoresForView(stores, targetRates) {
 
 function getStoreAiSortValue(store, targetRates) {
   return getStoreAiSortMeta(store, targetRates).score;
+}
+
+function exportCurrentPdfView() {
+  window.print();
 }
 
 function getStoreAiSortMeta(store, targetRates) {

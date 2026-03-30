@@ -219,6 +219,11 @@ select {
   min-width: 120px;
 }
 
+.export-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .period-trigger {
   height: 38px;
   border: 1px solid var(--line);
@@ -805,4 +810,57 @@ tbody tr:hover td {
 
 .hidden {
   display: none;
+}
+
+@page {
+  size: A4 landscape;
+  margin: 10mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .page-shell {
+    padding: 0;
+  }
+
+  .page-header,
+  .period-panel,
+  .import-panel,
+  .selection-action-bar,
+  .data-updated-badge,
+  .matrix-legend,
+  .access-gate {
+    display: none !important;
+  }
+
+  .panel {
+    box-shadow: none;
+    border: none;
+    background: #fff;
+  }
+
+  .table-wrap {
+    overflow: visible;
+  }
+
+  .matrix-table {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .matrix-table th,
+  .matrix-table td {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .matrix-seat,
+  .matrix-share-value,
+  .ai-diagnosis {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
