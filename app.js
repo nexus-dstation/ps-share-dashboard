@@ -933,15 +933,8 @@ function sortStoresForView(stores, targetRates) {
     if (state.sortMonth === "__AI__") {
       const aMeta = getStoreAiSortMeta(a, targetRates);
       const bMeta = getStoreAiSortMeta(b, targetRates);
-      const rankMap = state.sortDirection === "asc"
-        ? { 1: 0, [-1]: 1, 0: 2 }
-        : { [-1]: 0, 1: 1, 0: 2 };
-      const directionDiff = rankMap[aMeta.direction] - rankMap[bMeta.direction];
-      if (directionDiff !== 0) {
-        return directionDiff;
-      }
-      const aSafe = Number.isFinite(aMeta.points) ? aMeta.points : Number.NEGATIVE_INFINITY;
-      const bSafe = Number.isFinite(bMeta.points) ? bMeta.points : Number.NEGATIVE_INFINITY;
+      const aSafe = Number.isFinite(aMeta.score) ? aMeta.score : Number.NEGATIVE_INFINITY;
+      const bSafe = Number.isFinite(bMeta.score) ? bMeta.score : Number.NEGATIVE_INFINITY;
       const diff = state.sortDirection === "asc" ? aSafe - bSafe : bSafe - aSafe;
       return diff || state.storeOrder.indexOf(a) - state.storeOrder.indexOf(b);
     }
@@ -955,7 +948,7 @@ function sortStoresForView(stores, targetRates) {
 }
 
 function getStoreAiSortValue(store, targetRates) {
-  return getStoreAiSortMeta(store, targetRates).points;
+  return getStoreAiSortMeta(store, targetRates).score;
 }
 
 function getStoreAiSortMeta(store, targetRates) {
@@ -964,15 +957,16 @@ function getStoreAiSortMeta(store, targetRates) {
     .map((rate) => getRateAiTrendScore(store, rate))
     .filter((score) => score !== null);
   if (!rows.length) {
-    return { direction: 0, points: null };
+    return { direction: 0, points: null, score: null };
   }
   const avgScore = average(rows);
   if (!Number.isFinite(avgScore) || avgScore === 0) {
-    return { direction: 0, points: 0 };
+    return { direction: 0, points: 0, score: 0 };
   }
   return {
     direction: avgScore > 0 ? 1 : -1,
-    points: average(rows.map((score) => getAiPriorityPoints(score)))
+    points: getAiPriorityPoints(avgScore),
+    score: avgScore
   };
 }
 
@@ -990,12 +984,7 @@ function getRateAiTrendScore(store, rate) {
         Number.isFinite(row.補粗利シェア) &&
         Number.isFinite(row.台数シェア)
       ) {
-        if (row.売上シェア > row.補粗利シェア && row.補粗利シェア > row.台数シェア) {
-          return ((row.売上シェア - row.台数シェア) + (row.補粗利シェア - row.台数シェア)) / 2;
-        }
-        if (row.売上シェア < row.補粗利シェア && row.補粗利シェア < row.台数シェア) {
-          return -(((row.台数シェア - row.売上シェア) + (row.台数シェア - row.補粗利シェア)) / 2);
-        }
+        return ((row.売上シェア + row.補粗利シェア) / 2) - row.台数シェア;
       }
       return 0;
     });
