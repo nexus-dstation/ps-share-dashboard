@@ -32,6 +32,7 @@ const els = {
   storeSelect: document.querySelector("#storeSelect"),
   storePrevButton: document.querySelector("#storePrevButton"),
   storeNextButton: document.querySelector("#storeNextButton"),
+  selectedStoresToggle: document.querySelector("#selectedStoresToggle"),
   rateSelect: document.querySelector("#rateSelect"),
   metricSelect: document.querySelector("#metricSelect"),
   exportExcelButton: document.querySelector("#exportExcelButton"),
@@ -79,6 +80,8 @@ const state = {
   importPanelOpen: false,
   importUnlocked: false,
   storeOrder: [],
+  selectedStores: [],
+  showSelectedStoresOnly: false,
   sortMonth: "",
   sortDirection: "desc"
 };
@@ -126,6 +129,7 @@ function bindEvents() {
 
   els.storeSelect.addEventListener("change", () => {
     state.selectedStore = els.storeSelect.value;
+    state.showSelectedStoresOnly = false;
     render();
   });
 
@@ -135,6 +139,15 @@ function bindEvents() {
 
   els.storeNextButton.addEventListener("click", () => {
     moveStoreSelection(1);
+  });
+
+  els.selectedStoresToggle.addEventListener("click", () => {
+    if (!state.selectedStores.length) {
+      window.alert("先に一覧の店名横チェックで店舗を選択してください");
+      return;
+    }
+    state.showSelectedStoresOnly = !state.showSelectedStoresOnly;
+    render();
   });
 
   els.rateSelect.addEventListener("change", () => {
@@ -220,6 +233,14 @@ function bindEvents() {
     state.importPanelOpen = false;
     updateImportPanel();
     await init();
+  });
+
+  window.addEventListener("popstate", (event) => {
+    if (!event.state || event.state.scope !== "dashboard-view") {
+      return;
+    }
+    restoreViewState(event.state.payload);
+    render();
   });
 
 }
@@ -449,6 +470,7 @@ function render() {
 
   els.dashboard.classList.remove("hidden");
   els.emptyState.classList.add("hidden");
+  syncSelectedStoresToggle();
   renderTrendCards();
 }
 
@@ -456,7 +478,9 @@ function renderTrendCards() {
   els.trendCards.innerHTML = "";
   const monthsAsc = getVisibleMonths();
   const allRealStores = state.stores.filter((store) => store !== "全店舗");
-  const baseStores = state.selectedStore === "全店舗" ? allRealStores : [state.selectedStore];
+  const baseStores = state.showSelectedStoresOnly && state.selectedStores.length
+    ? allRealStores.filter((store) => state.selectedStores.includes(store))
+    : (state.selectedStore === "全店舗" ? allRealStores : [state.selectedStore]);
   const requestedRates = state.selectedRate === "全レート" ? RATE_ORDER : [state.selectedRate];
   const targetRates = requestedRates.filter((rate) => rateHasAnySeats(baseStores, rate));
   const targetStores = sortStoresForView(baseStores, targetRates);
@@ -484,7 +508,12 @@ function renderTrendCards() {
         return buildMatrixCell(row, month, rate);
       }).join("");
       tr.innerHTML = `
-        <td><button type="button" class="store-link-button" data-store-name="${store}">${store}</button></td>
+        <td>
+          <label class="store-select-row">
+            <input type="checkbox" class="store-select-checkbox" data-store-check="${store}" ${state.selectedStores.includes(store) ? "checked" : ""}>
+            <button type="button" class="store-link-button" data-store-name="${store}">${store}</button>
+          </label>
+        </td>
         <td>${rate}</td>
         ${monthCells}
         <td class="ai-col-cell">${buildAiDiagnosis(store, rate)}</td>
@@ -517,11 +546,31 @@ function renderTrendCards() {
     button.addEventListener("click", () => {
       const store = button.dataset.storeName;
       if (!store) return;
+      pushCurrentViewState();
       state.selectedStore = store;
+      state.showSelectedStoresOnly = false;
       state.selectedRate = "全レート";
       els.storeSelect.value = store;
       els.rateSelect.value = "全レート";
       render();
+    });
+  });
+
+  els.trendCards.querySelectorAll("[data-store-check]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const store = input.dataset.storeCheck;
+      if (!store) return;
+      if (input.checked) {
+        if (!state.selectedStores.includes(store)) {
+          state.selectedStores = [...state.selectedStores, store];
+        }
+      } else {
+        state.selectedStores = state.selectedStores.filter((name) => name !== store);
+        if (!state.selectedStores.length) {
+          state.showSelectedStoresOnly = false;
+        }
+      }
+      syncSelectedStoresToggle();
     });
   });
 }
@@ -1094,8 +1143,48 @@ function moveStoreSelection(direction) {
   if (index < 0) return;
   const nextIndex = Math.max(0, Math.min(stores.length - 1, index + direction));
   state.selectedStore = stores[nextIndex];
+  state.showSelectedStoresOnly = false;
   els.storeSelect.value = state.selectedStore;
   render();
+}
+
+function syncSelectedStoresToggle() {
+  const count = state.selectedStores.length;
+  els.selectedStoresToggle.textContent = count
+    ? `選択店舗のみ表示 (${count})`
+    : "選択店舗のみ表示";
+  els.selectedStoresToggle.classList.toggle("active", state.showSelectedStoresOnly);
+}
+
+function pushCurrentViewState() {
+  const payload = {
+    selectedStore: state.selectedStore,
+    selectedRate: state.selectedRate,
+    selectedMetric: state.selectedMetric,
+    periodStart: state.periodStart,
+    periodEnd: state.periodEnd,
+    sortMonth: state.sortMonth,
+    sortDirection: state.sortDirection,
+    selectedStores: [...state.selectedStores],
+    showSelectedStoresOnly: state.showSelectedStoresOnly
+  };
+  window.history.pushState({ scope: "dashboard-view", payload }, "");
+}
+
+function restoreViewState(payload) {
+  state.selectedStore = payload.selectedStore || "全店舗";
+  state.selectedRate = payload.selectedRate || "全レート";
+  state.selectedMetric = payload.selectedMetric || "all";
+  state.periodStart = payload.periodStart || state.periodStart;
+  state.periodEnd = payload.periodEnd || state.periodEnd;
+  state.sortMonth = payload.sortMonth || "";
+  state.sortDirection = payload.sortDirection || "desc";
+  state.selectedStores = Array.isArray(payload.selectedStores) ? payload.selectedStores.filter((store) => state.stores.includes(store)) : [];
+  state.showSelectedStoresOnly = Boolean(payload.showSelectedStoresOnly && state.selectedStores.length);
+  els.storeSelect.value = state.selectedStore;
+  els.rateSelect.value = state.selectedRate;
+  els.metricSelect.value = state.selectedMetric;
+  syncPeriodTrigger();
 }
 
 function buildImportMonthOptions(existingMonths) {

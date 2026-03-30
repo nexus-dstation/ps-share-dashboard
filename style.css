@@ -150,6 +150,10 @@ select {
   min-width: 270px;
 }
 
+.control-selected-toggle {
+  min-width: 170px;
+}
+
 .nav-select-wrap {
   display: grid;
   grid-template-columns: 38px minmax(160px, 1fr) 38px;
@@ -337,10 +341,22 @@ select {
   border-color: var(--accent);
 }
 
+.button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .button.ghost {
   background: #fff;
   color: var(--text);
   border-color: var(--line);
+}
+
+.button.ghost.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 
 .dashboard {
@@ -515,6 +531,16 @@ tbody tr:hover td {
 .store-link-button:hover {
   color: var(--accent);
   text-decoration: underline;
+}
+
+.store-select-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.store-select-checkbox {
+  margin: 0;
 }
 
 .matrix-table th:nth-child(2),
