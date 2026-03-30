@@ -33,7 +33,6 @@ const els = {
   storeSelect: document.querySelector("#storeSelect"),
   storePrevButton: document.querySelector("#storePrevButton"),
   storeNextButton: document.querySelector("#storeNextButton"),
-  selectedStoresToggle: document.querySelector("#selectedStoresToggle"),
   rateSelect: document.querySelector("#rateSelect"),
   metricSelect: document.querySelector("#metricSelect"),
   exportExcelButton: document.querySelector("#exportExcelButton"),
@@ -151,15 +150,6 @@ function bindEvents() {
 
   els.storeNextButton.addEventListener("click", () => {
     moveStoreSelection(1);
-  });
-
-  els.selectedStoresToggle.addEventListener("click", () => {
-    if (!state.selectedStores.length) {
-      window.alert("先に一覧の店名横チェックで店舗を選択してください");
-      return;
-    }
-    state.showSelectedStoresOnly = !state.showSelectedStoresOnly;
-    render();
   });
 
   els.selectionShowOnlyButton.addEventListener("click", () => {
@@ -496,7 +486,7 @@ function render() {
 
   els.dashboard.classList.remove("hidden");
   els.emptyState.classList.add("hidden");
-  syncSelectedStoresToggle();
+  updateSelectionActionBar();
   renderTrendCards();
 }
 
@@ -596,7 +586,7 @@ function renderTrendCards() {
           state.showSelectedStoresOnly = false;
         }
       }
-      syncSelectedStoresToggle();
+      updateSelectionActionBar();
       render();
     });
   });
@@ -622,8 +612,20 @@ function getViewContext() {
   return { monthsAsc, targetStores, targetRates };
 }
 
+function getExportContext() {
+  const monthsAsc = getVisibleMonths();
+  const allRealStores = state.stores.filter((store) => store !== "全店舗");
+  const exportBaseStores = state.selectedStores.length
+    ? allRealStores.filter((store) => state.selectedStores.includes(store))
+    : (state.selectedStore === "全店舗" ? allRealStores : [state.selectedStore]);
+  const requestedRates = state.selectedRate === "全レート" ? RATE_ORDER : [state.selectedRate];
+  const targetRates = requestedRates.filter((rate) => rateHasAnySeats(exportBaseStores, rate));
+  const targetStores = sortStoresForView(exportBaseStores, targetRates);
+  return { monthsAsc, targetStores, targetRates };
+}
+
 async function exportCurrentView() {
-  const { monthsAsc, targetStores, targetRates } = getViewContext();
+  const { monthsAsc, targetStores, targetRates } = getExportContext();
   if (!monthsAsc.length || !targetStores.length || !targetRates.length) {
     window.alert("出力できるデータがありません");
     return;
@@ -1175,13 +1177,8 @@ function moveStoreSelection(direction) {
   render();
 }
 
-function syncSelectedStoresToggle() {
+function updateSelectionActionBar() {
   const count = state.selectedStores.length;
-  els.selectedStoresToggle.textContent = count
-    ? `選択店舗のみ表示 (${count})`
-    : "選択店舗のみ表示";
-  els.selectedStoresToggle.classList.toggle("active", state.showSelectedStoresOnly);
-
   const hasSelection = count > 0;
   els.selectionActionBar.classList.toggle("hidden", !hasSelection);
   els.selectionShowOnlyButton.textContent = state.showSelectedStoresOnly ? `全体表示に戻す (${count})` : `選択店舗のみ表示 (${count})`;

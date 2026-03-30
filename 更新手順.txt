@@ -23,8 +23,14 @@ PS台数シェア推移 ダッシュボード 更新手順
    - data/dashboard-data.js
 
 4. ターミナルまたは PowerShell でこのフォルダを開いて実行
+▼新規追加
    git commit -m "Add 2026-03 dashboard data"
    git push
+
+▼フォルダ内のデータ変更した時
+git commit -m "Add 2026-03 dashboard data"
+   git push
+
 
 5. GitHub Pages 反映後、全員が新しい月を閲覧可能
 

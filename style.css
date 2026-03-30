@@ -55,25 +55,18 @@ body {
 
 .selection-action-bar {
   position: fixed;
-  left: 50%;
-  bottom: 44px;
-  transform: translateX(-50%);
+  left: 18px;
+  bottom: 18px;
   z-index: 121;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 10px 12px;
   border: 1px solid rgba(217, 223, 229, 0.95);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 10px 22px rgba(31, 41, 55, 0.08);
   backdrop-filter: blur(8px);
-}
-
-.selection-action-text {
-  color: var(--muted);
-  font-size: 12px;
-  white-space: nowrap;
 }
 
 .selection-action-buttons {
