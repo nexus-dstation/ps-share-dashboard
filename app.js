@@ -484,7 +484,7 @@ function renderTrendCards() {
         return buildMatrixCell(row, month, rate);
       }).join("");
       tr.innerHTML = `
-        <td>${store}</td>
+        <td><button type="button" class="store-link-button" data-store-name="${store}">${store}</button></td>
         <td>${rate}</td>
         ${monthCells}
         <td class="ai-col-cell">${buildAiDiagnosis(store, rate)}</td>
@@ -509,6 +509,18 @@ function renderTrendCards() {
         state.sortMonth = month;
         state.sortDirection = "desc";
       }
+      render();
+    });
+  });
+
+  els.trendCards.querySelectorAll("[data-store-name]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const store = button.dataset.storeName;
+      if (!store) return;
+      state.selectedStore = store;
+      state.selectedRate = "全レート";
+      els.storeSelect.value = store;
+      els.rateSelect.value = "全レート";
       render();
     });
   });
