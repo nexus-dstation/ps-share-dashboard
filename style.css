@@ -633,6 +633,30 @@ tbody tr:hover td {
   text-align: center;
 }
 
+.ai-help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1;
+  cursor: help;
+  vertical-align: middle;
+  background: #ffffff;
+}
+
+.ai-help-icon:hover,
+.ai-help-icon:focus {
+  color: var(--accent);
+  border-color: var(--accent);
+  outline: none;
+}
+
 .ai-diagnosis {
   display: inline-flex;
   flex-direction: column;

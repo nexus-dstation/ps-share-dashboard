@@ -13,7 +13,7 @@ const RAW_RATE_FILE_PREFIXES = {
   "5円未満S": "チェーン店レポート_種別_5円未満S"
 };
 const RAW_SUM_KEYS = new Set(["台数", "自店客数", "商圏客数", "売上合計(千円)", "補粗利合計", "アウト"]);
-const AI_DIAGNOSIS_TOOLTIP = "判断基準：((売上シェア - 台数シェア) + (補粗利シェア - 台数シェア)) / 2\n判定は直近3か月平均。";
+const AI_DIAGNOSIS_TOOLTIP = "((売上シェア + 補粗利シェア) / 2) - 台数シェア（3か月平均）\n\n・売上シェアと補粗利シェアの平均が、台数シェアより高い\n→ そのレートは少なめでも成果が出ているので 過少寄り\n\n・逆に低い\n→ 台数のわりに成果が弱いので過多気味\n\n※強化店舗など利益率低めに設定している店は別の視点で見る必要あります。";
 const STATUS_CLASS = {
   "不足": "status-shortage",
   "過剰": "status-excess",
@@ -514,7 +514,7 @@ function renderTrendCards() {
         const marker = state.sortMonth === month ? (state.sortDirection === "asc" ? " ▲" : " ▼") : "";
         return `<th><button type="button" class="month-sort-button${active}" data-sort-month="${month}">${month}${marker}</button></th>`;
         }).join("")}
-      <th class="ai-col-head"><button type="button" class="month-sort-button${state.sortMonth === "__AI__" ? ` sort-${state.sortDirection}` : ""}" data-sort-month="__AI__" title="${AI_DIAGNOSIS_TOOLTIP}">AI診断${state.sortMonth === "__AI__" ? (state.sortDirection === "asc" ? " ▲" : " ▼") : ""}</button></th>
+      <th class="ai-col-head"><button type="button" class="month-sort-button${state.sortMonth === "__AI__" ? ` sort-${state.sortDirection}` : ""}" data-sort-month="__AI__">AI診断${state.sortMonth === "__AI__" ? (state.sortDirection === "asc" ? " ▲" : " ▼") : ""}</button><span class="ai-help-icon" tabindex="0" title="${AI_DIAGNOSIS_TOOLTIP}">?</span></th>
       </tr>
     `;
 
