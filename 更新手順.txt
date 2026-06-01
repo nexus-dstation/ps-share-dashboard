@@ -24,7 +24,7 @@ PS台数シェア推移 ダッシュボード 更新手順
 
 4. ターミナルまたは PowerShell でこのフォルダを開いて実行
 ▼新規追加
-   git commit -m "Add 2026-03 dashboard data"
+   git commit -m "Add 2026-05 dashboard data"
    git push
 
 ▼フォルダ内のデータ変更した時
